@@ -92,6 +92,24 @@ def explain(req: ExplainRequest):
         raise HTTPException(400, str(e))
 
 
+class AskRequest(BaseModel):
+    message: str = Field(min_length=3, max_length=500)
+    language: str = "English"
+    history: list[dict] = []
+
+
+@app.post("/api/ask")
+def ask(req: AskRequest):
+    if req.language not in ("English", "Español", "Kreyòl ayisyen"):
+        raise HTTPException(400, "Unsupported language.")
+    if not os.getenv("OPENAI_API_KEY"):
+        raise HTTPException(503, "The AI helper isn't turned on yet. The address box below still works.")
+    try:
+        return agent.ask(req.message, req.language, req.history[-6:])
+    except Exception:
+        raise HTTPException(502, "The AI helper had a problem. Try again, or use the address box below.")
+
+
 @app.get("/api/health")
 def health():
     return {"ok": True, "ai_agent": bool(os.getenv("OPENAI_API_KEY")), "model": agent.MODEL,

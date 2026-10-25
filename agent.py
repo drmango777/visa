@@ -148,3 +148,104 @@ def explain(context, language="English"):
     if language != "English":
         text = f"(Add an OpenAI key to get this in {language}.) " + text
     return {"text": text, "mode": "backup"}
+
+
+# ---------- "Ask Sail-by": the main agent ----------
+# The person writes in plain words. The model decides which tools to call
+# (find the address, check the area, check what changed since a date),
+# reads the real results, and answers. The page shows each step it took.
+
+ASK_PROMPT = """You are Sail-by, a helper for people coming home from prison in Miami-Dade County. You cover three areas: Little Havana, Downtown, and Overtown.
+
+The person writes in their own words. Work out what they need, then use your tools to get real facts:
+- find_address: turn an address into a map location. Use it whenever they give an address or a place.
+- get_area_facts: rent change, price changes, and nearby bus routes (with what changed on each) for a location. Use it after find_address.
+- get_changes_since: everything that changed since a date: minimum wage, rent, prices, and new rules or services. Use it when they give a date (a month and year is fine; use day 1) or ask what changed while they were away.
+
+Rules:
+- Base every fact on tool results. Never invent rents, prices, dates, routes, or rules.
+- If you are missing the address or the date you need, ask for it in one short question. Do not guess.
+- If an address is outside the three areas, say so plainly and still share what the tools returned.
+- Write at about a 6th-grade reading level. Short sentences. Warm and direct. No jargon.
+- Write in {language}.
+- Not legal advice. For release conditions, records, or voting rights, say to check with their case manager or the official source the tool results link to.
+- Reply with 4 to 8 short sentences of plain text (no markdown, no lists). Put what matters most first, then one practical next step."""
+
+ASK_TOOLS = [
+    {"type": "function", "function": {
+        "name": "find_address",
+        "description": "Turn an address or place in Miami into a map location (latitude, longitude, ZIP code).",
+        "parameters": {"type": "object", "properties": {"address": {"type": "string"}}, "required": ["address"]}}},
+    {"type": "function", "function": {
+        "name": "get_area_facts",
+        "description": "Rent change, price changes, and nearby bus routes (with what changed on each) around a location.",
+        "parameters": {"type": "object", "properties": {
+            "lat": {"type": "number"}, "lon": {"type": "number"}, "zip": {"type": "string"},
+            "radius_miles": {"type": "number", "enum": [0.5, 1, 2]}},
+            "required": ["lat", "lon", "zip"]}}},
+    {"type": "function", "function": {
+        "name": "get_changes_since",
+        "description": "Everything that changed since a date: minimum wage, rent, prices, and new rules and services.",
+        "parameters": {"type": "object", "properties": {
+            "since": {"type": "string", "description": "YYYY-MM-DD"},
+            "area_id": {"type": "string", "description": "little-havana, downtown, or overtown (from get_area_facts area.id). Empty if unknown."},
+            "zip": {"type": "string"}},
+            "required": ["since"]}}},
+]
+
+
+def ask(message, language="English", history=None):
+    """Run the agent. Returns {answer, steps, place, since}. Raises on API failure."""
+    from openai import OpenAI
+    client = OpenAI()
+    msgs = [{"role": "system", "content": ASK_PROMPT.format(language=language)}]
+    for h in (history or [])[-6:]:
+        if isinstance(h, dict) and h.get("role") in ("user", "assistant") and isinstance(h.get("content"), str):
+            msgs.append({"role": h["role"], "content": h["content"][:1500]})
+    msgs.append({"role": "user", "content": message[:500]})
+
+    steps, found = [], {"place": None, "since": None, "matched": "", "zip": ""}
+
+    def run(name, a):
+        if name == "find_address":
+            r = tools.geocode(a["address"])
+            found["matched"], found["zip"] = r["matched"], r.get("zip", "")
+            steps.append(f"Looked up the address: {r['matched']}")
+            return r
+        if name == "get_area_facts":
+            radius = min((0.5, 1.0, 2.0), key=lambda x: abs(x - float(a.get("radius_miles", 1))))
+            zip_code = (a.get("zip") or found["zip"] or "")[:5]
+            r = tools.nearby(float(a["lat"]), float(a["lon"]), zip_code, radius)
+            n = len(r["buses"]["routes"]) if r["buses"].get("available") else 0
+            where = r["area"]["name"] if r["area"] else "outside the three areas"
+            steps.append(f"Checked rent, prices, and {n} bus or train routes within {radius:g} mile{'' if radius == 1 else 's'} ({where})")
+            found["place"] = {"lat": float(a["lat"]), "lon": float(a["lon"]), "zip": zip_code, "radius": radius,
+                              "matched": found["matched"] or (r["area"]["name"] if r["area"] else "Your location")}
+            found["area_id"] = r["area"]["id"] if r["area"] else ""
+            return _slim(r)
+        if name == "get_changes_since":
+            area_id = a.get("area_id") or found.get("area_id") or None
+            zip_code = (a.get("zip") or found["zip"] or "")[:5]
+            r = tools.changes_since(a["since"], area_id if area_id in tools.AREA_BY_ID else None, zip_code)
+            new = sum(1 for e in r["events"] if not e["still_true"])
+            steps.append(f"Checked what changed since {r['since']}: {new} new things to know")
+            found["since"] = {"date": r["since"], "area_id": area_id or "", "zip": zip_code}
+            return _slim(r)
+        raise ValueError(f"Unknown tool {name}")
+
+    for _ in range(7):
+        msg = client.chat.completions.create(model=MODEL, messages=msgs, tools=ASK_TOOLS, temperature=0.2).choices[0].message
+        if not msg.tool_calls:
+            return {"answer": (msg.content or "").strip(), "steps": steps,
+                    "place": found["place"], "since": found["since"]}
+        msgs.append({"role": "assistant", "content": msg.content or "", "tool_calls": [
+            {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+            for tc in msg.tool_calls]})
+        for tc in msg.tool_calls:
+            try:
+                result = run(tc.function.name, json.loads(tc.function.arguments or "{}"))
+            except Exception as e:  # noqa: BLE001
+                result = {"error": str(e)}
+                steps.append(f"Couldn't finish a step: {e}")
+            msgs.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(result)})
+    raise RuntimeError("The agent took too many steps.")
