@@ -98,14 +98,23 @@ def main():
     # 4. which routes stop at the kept stops (stop_times.txt is the big file)
     print("  reading stop times (this takes a minute)...")
     touching = set()
+    svc_by_stop = defaultdict(dict)   # stop id -> route label -> [first, last, trips] (minutes after midnight)
     for r in rows(zf, "stop_times.txt"):
         s = stops.get(r["stop_id"])
         if s is None:
             continue
         rid = trip_route.get(r["trip_id"])
         if rid:
-            s["routes"].add(routes[rid]["label"])
+            label = routes[rid]["label"]
+            s["routes"].add(label)
             touching.add(rid)
+            try:
+                h, m, _ = (r.get("departure_time") or r.get("arrival_time")).split(":")
+                mins = int(h) * 60 + int(m)
+            except (AttributeError, ValueError):
+                continue
+            e = svc_by_stop[s["id"]].setdefault(label, [mins, mins, 0])
+            e[0], e[1], e[2] = min(e[0], mins), max(e[1], mins), e[2] + 1
 
     # 5. route lines: the two most-used shapes per route
     want = {}
@@ -130,7 +139,7 @@ def main():
             line = [[round(a, 5), round(b, 5)] for _, a, b in sorted(pts[sid])]
             out_routes[routes[rid]["label"]]["shapes"].append(thin(line))
 
-    out_stops = [{**s, "routes": sorted(s["routes"])} for s in stops.values() if s["routes"]]
+    out_stops = [{**s, "routes": sorted(s["routes"]), "svc": svc_by_stop.get(s["id"], {})} for s in stops.values() if s["routes"]]
     print(f"  {len(out_stops)} stops with service, {len(out_routes)} routes")
     meta = {"source": "Miami-Dade Transit GTFS feed", "source_url": URL, "fetched": today()}
     write_json("transit_stops.json", {**meta, "stops": out_stops})
