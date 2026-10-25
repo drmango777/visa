@@ -1,308 +1,226 @@
-"""Tools the Reentry Compass agent can call.
+"""Tools for Reentry Compass. Plain Python, no AI, so every number is checkable.
 
-Every function here is plain Python with no AI in it, so results are
-predictable and testable. The agent decides which tools to call and
-explains the results; these functions do the actual checking.
-
-Demo data lives in /data. It is SAMPLE data for a few Miami-Dade areas.
-Replace it with real data (see scripts/fetch_census_rent.py) before real use.
+The agent (agent.py) can call these, and the website calls them directly.
+Data lives in /data. Run `python scripts/update_all_data.py` to refresh it.
 """
 
 import json
-import math
-from datetime import datetime, timezone
+import urllib.parse
+from datetime import date, datetime
 from pathlib import Path
 
-DATA = Path(__file__).parent / "data"
-LOG_PATH = DATA / "conflict_log.jsonl"
+from scripts.common import http, miles_between
 
-# How close to curfew counts as "tight" (minutes).
-TIGHT_MARGIN = 15
+DATA = Path(__file__).parent / "data"
+COVERED_MILES = 2.0     # an address this close to an area center counts as that area
 
 
 def _load(name):
-    with open(DATA / name, encoding="utf-8") as f:
+    path = DATA / name
+    if not path.exists():
+        return None
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
-def _load_preferring_real(real_name, sample_name):
-    """Use real data from the scripts/ folder if it has been built."""
-    if (DATA / real_name).exists():
-        return _load(real_name), True
-    return _load(sample_name), False
-
-
-AREAS = _load("areas.json")
-SITES = _load("checkin_sites.json")
-TRANSIT, TRANSIT_IS_REAL = _load_preferring_real("transit_real.json", "transit.json")
-HELP, HELP_IS_REAL = _load_preferring_real("help_real.json", "help_nearby.json")
-ALERTS = _load("civic_alerts.json")
-SOURCES = _load("sources.json") if (DATA / "sources.json").exists() else {}
-
+AREAS = _load("areas.json") or []
 AREA_BY_ID = {a["id"]: a for a in AREAS}
-SITE_BY_ID = {s["id"]: s for s in SITES}
+TIMELINE = _load("timeline.json") or {"events": [], "min_wage": {"steps": []}}
+CHANGES = _load("route_changes.json") or {"routes": {}, "gone": {}}
+RENT = _load("rent.json")
+PRICES = _load("prices.json")
+STOPS = _load("transit_stops.json")
+ROUTES = _load("transit_routes.json")
 
 
-# ---------- time helpers ----------
-
-def parse_time(value):
-    """'19:30' -> minutes after midnight. Raises ValueError if invalid."""
-    try:
-        hours, minutes = value.strip().split(":")
-        hours, minutes = int(hours), int(minutes)
-    except Exception:
-        raise ValueError(f"Time must look like 19:30, got {value!r}")
-    if not (0 <= hours < 24 and 0 <= minutes < 60):
-        raise ValueError(f"Time out of range: {value!r}")
-    return hours * 60 + minutes
-
-
-def fmt_time(total_minutes):
-    """Minutes after midnight -> '8:15 p.m.'"""
-    total_minutes %= 24 * 60
-    hours, minutes = divmod(total_minutes, 60)
-    suffix = "a.m." if hours < 12 else "p.m."
-    return f"{hours % 12 or 12}:{minutes:02d} {suffix}"
-
-
-def miles_between(lat1, lon1, lat2, lon2):
-    """Straight-line distance in miles (haversine)."""
-    r = 3958.8
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp, dl = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * r * math.asin(math.sqrt(a))
-
-
-# ---------- tool 1: transit vs curfew ----------
-
-def check_trip(site_id, area_id, obligation_end, curfew):
-    """Can the person get from their check-in site home before curfew?
-
-    Assumes the obligation ends and curfew falls on the same evening.
-    Wait time = half the bus/train headway (a standard planning estimate).
-    """
-    trip = TRANSIT.get(site_id, {}).get(area_id)
-    if trip is None and TRANSIT_IS_REAL:
-        return {"status": "no_service", "mode": "Transit", "ride_minutes": None,
-                "message": "No bus or train route gets there from this check-in within 3 hours."}
-    if trip is None:
-        return {"status": "no_data", "message": "No transit data for this trip yet."}
-
-    end = parse_time(obligation_end)
-    cur = parse_time(curfew)
-    if "schedule" in trip:
-        return _check_scheduled_trip(trip["schedule"], end, cur)
-    last = parse_time(trip["last_departure"])
-    wait = trip["headway_minutes"] // 2
-    leave = end + wait
-
-    base = {
-        "mode": trip["mode"],
-        "ride_minutes": trip["minutes"],
-        "last_departure": fmt_time(last),
-        "obligation_end": fmt_time(end),
-        "curfew": fmt_time(cur),
-    }
-
-    if leave > last:
-        return {**base, "status": "no_service", "leave": None, "arrive": None,
-                "margin_minutes": None,
-                "message": f"No ride home after your {fmt_time(end)} check-in. The last trip leaves at {fmt_time(last)}"}
-
-    arrive = leave + trip["minutes"]
-    margin = cur - arrive
-    if margin < 0:
-        status = "conflict"
-        message = f"You'd get home at {fmt_time(arrive)}, {-margin} min after your {fmt_time(cur)} curfew."
-    elif margin <= TIGHT_MARGIN:
-        status = "tight"
-        message = f"You'd get home at {fmt_time(arrive)}, only {margin} min before curfew. One late bus breaks it."
-    else:
-        status = "ok"
-        message = f"You'd get home at {fmt_time(arrive)}, {margin} min before curfew."
-
-    return {**base, "status": status, "leave": fmt_time(leave), "arrive": fmt_time(arrive),
-            "leave_minutes": leave, "arrive_minutes": arrive, "obligation_end_minutes": end,
-            "curfew_minutes": cur, "margin_minutes": margin, "message": message}
-
-
-def _status_for(arrive, cur):
-    margin = cur - arrive
-    if margin < 0:
-        return "conflict", margin, f"You'd get home at {fmt_time(arrive)}, {-margin} min after your {fmt_time(cur)} curfew."
-    if margin <= TIGHT_MARGIN:
-        return "tight", margin, f"You'd get home at {fmt_time(arrive)}, only {margin} min before curfew. One late bus breaks it."
-    return "ok", margin, f"You'd get home at {fmt_time(arrive)}, {margin} min before curfew."
-
-
-def _check_scheduled_trip(schedule, end, cur):
-    """Real GTFS data: schedule rows are [leave_minute, arrive_minute, modes].
-
-    Each arrival already includes walking, waiting, and transfers, computed
-    from Miami-Dade Transit's published weekday schedule.
-    """
-    base = {"obligation_end": fmt_time(end), "curfew": fmt_time(cur),
-            "last_departure": fmt_time(schedule[-1][0]) if schedule else None}
-    row = next((r for r in schedule if r[0] >= end), None)
-    if row is None:
-        last = fmt_time(schedule[-1][0]) if schedule else "earlier in the day"
-        return {**base, "status": "no_service", "mode": "Transit", "ride_minutes": None,
-                "leave": None, "arrive": None, "margin_minutes": None,
-                "message": f"No ride home after your {fmt_time(end)} check-in. The last trip that gets there starts around {last}"}
-    leave, arrive, modes = row
-    status, margin, message = _status_for(arrive, cur)
-    return {**base, "status": status, "mode": modes, "ride_minutes": arrive - leave,
-            "leave": fmt_time(leave), "arrive": fmt_time(arrive),
-            "leave_minutes": leave, "arrive_minutes": arrive, "obligation_end_minutes": end,
-            "curfew_minutes": cur, "margin_minutes": margin, "message": message}
-
-
-# ---------- tool 2: rank areas ----------
-
-STATUS_RANK = {"ok": 0, "tight": 1, "conflict": 2, "no_service": 3, "no_data": 4}
-RENT_RANK = {"fits": 0, "stretch": 1, "over": 2}
-
-
-def rent_fit(rent, budget):
-    if rent <= budget:
-        return "fits"
-    if rent <= budget * 1.1:
-        return "stretch"
-    return "over"
-
-
-def find_areas(checkin_site, radius_miles, budget, curfew, obligation_end):
-    """Rank every area within the radius by curfew safety, budget, and help nearby."""
-    site = SITE_BY_ID.get(checkin_site)
-    if site is None:
-        raise ValueError(f"Unknown check-in site: {checkin_site}")
-
-    results, outside = [], []
-    for area in AREAS:
-        dist = miles_between(site["lat"], site["lon"], area["lat"], area["lon"])
-        if dist > radius_miles:
-            outside.append(area["name"])
-            continue
-        trip = check_trip(checkin_site, area["id"], obligation_end, curfew)
-        help_count = sum(1 for h in HELP if h["area_id"] == area["id"])
-        results.append({
-            "area_id": area["id"],
-            "name": area["name"],
-            "zip": area["zip"],
-            "distance_miles": round(dist, 1),
-            "room_rent": area["room_rent"],
-            "apt_rent": area["apt_rent"],
-            "rent_change_pct_2yr": area["rent_change_pct_2yr"],
-            "room_fit": rent_fit(area["room_rent"], budget),
-            "apt_fit": rent_fit(area["apt_rent"], budget),
-            "trip": trip,
-            "help_count": help_count,
-            "rising_fast": area["rent_change_pct_2yr"] >= 12,
-        })
-
-    for r in results:
-        r["recommended"] = r["trip"]["status"] in ("ok", "tight") and r["room_fit"] != "over"
-
-    results.sort(key=lambda r: (
-        0 if r["recommended"] else 1,
-        STATUS_RANK[r["trip"]["status"]],
-        RENT_RANK[r["room_fit"]],
-        -r["help_count"],
-        r["distance_miles"],
-    ))
-    for i, r in enumerate(results, start=1):
-        r["rank"] = i
-
+def data_status():
+    """Which real data files are loaded. The site shows a notice for anything missing."""
     return {
-        "checkin_site": site["name"],
-        "radius_miles": radius_miles,
-        "budget": budget,
-        "areas": results,
-        "outside_radius": outside,
-        "data_note": data_note(),
+        "rent": RENT is not None,
+        "prices": PRICES is not None,
+        "buses": STOPS is not None and ROUTES is not None,
     }
 
 
-def data_note():
-    rent = SOURCES.get("rent")
-    transit = SOURCES.get("transit") if TRANSIT_IS_REAL else None
-    parts = [
-        f"Rent: {rent}." if rent else "Rent: sample data.",
-        f"Transit: {transit}." if transit else "Transit times: sample data.",
-    ]
-    return " ".join(parts)
+# ---------- finding the address ----------
+
+def geocode(query):
+    """Address text -> lat, lon, ZIP. Uses the free U.S. Census geocoder, then OpenStreetMap."""
+    q = query.strip()
+    if not q:
+        raise ValueError("Type an address first.")
+    if "fl" not in q.lower().replace(",", " ").split() and "florida" not in q.lower():
+        q += ", Miami, FL"
+    try:
+        raw = json.loads(http("https://geocoding.geo.census.gov/geocoder/locations/onelineaddress",
+                              {"address": q, "benchmark": "Public_AR_Current", "format": "json"},
+                              timeout=20, tries=2))
+        m = raw["result"]["addressMatches"]
+        if m:
+            c = m[0]
+            return {"lat": c["coordinates"]["y"], "lon": c["coordinates"]["x"],
+                    "zip": c["addressComponents"].get("zip", ""), "matched": c["matchedAddress"].title()}
+    except Exception:  # noqa: BLE001
+        pass
+    raw = json.loads(http("https://nominatim.openstreetmap.org/search",
+                          {"q": q, "format": "json", "addressdetails": 1, "limit": 1, "countrycodes": "us"},
+                          timeout=20, tries=2))
+    if not raw:
+        raise ValueError("We couldn't find that address. Check the spelling, or pick an area below.")
+    r = raw[0]
+    return {"lat": float(r["lat"]), "lon": float(r["lon"]),
+            "zip": (r.get("address", {}).get("postcode") or "")[:5], "matched": r["display_name"]}
 
 
-# ---------- tool 3: help nearby ----------
-
-def get_help_nearby(area_id, needs=None):
-    items = [h for h in HELP if h["area_id"] == area_id]
-    if needs:
-        wanted = set(needs)
-        if "shelter" in wanted:
-            wanted.add("housing")
-        items = [h for h in items if h["type"] in wanted] or items
-    note = SOURCES.get("places", "OpenStreetMap") if HELP_IS_REAL else "Sample listings for the demo."
-    return {"area_id": area_id, "places": items, "data_note": note}
+def nearest_area(lat, lon):
+    """The covered area this point belongs to, or None if it is outside all three."""
+    best = min(AREAS, key=lambda a: miles_between(lat, lon, a["lat"], a["lon"]), default=None)
+    if best and miles_between(lat, lon, best["lat"], best["lon"]) <= COVERED_MILES:
+        return best
+    return None
 
 
-# ---------- tool 4: civic alerts ----------
+# ---------- rent ----------
 
-def get_civic_alerts(area_ids):
-    names = {a: AREA_BY_ID[a]["name"] for a in area_ids if a in AREA_BY_ID}
-    alerts = [{**a, "area_name": names[a["area_id"]]} for a in ALERTS if a["area_id"] in names]
-    return {"alerts": alerts, "data_note": "Sample alerts. Check real county agendas before sharing."}
-
-
-# ---------- civic evidence: anonymous conflict log ----------
-
-def log_conflicts(site_id, ranked):
-    """Save conflict PATTERNS only. No names, no personal details, ever."""
-    entries = []
-    for r in ranked["areas"]:
-        status = r["trip"]["status"]
-        if status in ("conflict", "no_service"):
-            entries.append({
-                "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "site": site_id,
-                "area": r["area_id"],
-                "type": "curfew" if status == "conflict" else "no_service",
-                "detail": "Arrives after curfew" if status == "conflict"
-                          else "Last trip home leaves before obligation ends",
-                "sample": False,
-            })
-    if entries:
-        with open(LOG_PATH, "a", encoding="utf-8") as f:
-            for e in entries:
-                f.write(json.dumps(e) + "\n")
-    return len(entries)
+def rent_story(zip_code, area_id=None, year_then=None):
+    """Median rent now vs. an earlier year, from Census data."""
+    if RENT is None:
+        return {"available": False}
+    zips = RENT["zips"]
+    z = zip_code if zip_code in zips and zips[zip_code] else None
+    if z is None and area_id in AREA_BY_ID:  # fall back to the area's own ZIPs
+        z = next((x for x in AREA_BY_ID[area_id]["zips"] if zips.get(x)), None)
+    if z is None:
+        return {"available": False, "reason": "No rent numbers for this ZIP code."}
+    hist = {int(y): v for y, v in zips[z].items()}
+    years = sorted(hist)
+    now_year = years[-1]
+    want = year_then if year_then else now_year - 5
+    clamped = want < years[0]
+    then_year = max(years[0], min(want, now_year))
+    out = {"available": True, "zip": z, "now": hist[now_year], "now_year": now_year,
+           "history": [[y, hist[y]] for y in years], "first_year": years[0],
+           "source": RENT["source"], "source_url": RENT["source_url"], "note": RENT.get("note", "")}
+    if then_year >= now_year:
+        return {**out, "then": None}
+    then = hist[then_year]
+    return {**out, "then": then, "then_year": then_year, "clamped": clamped,
+            "diff": hist[now_year] - then, "pct": round((hist[now_year] / then - 1) * 100)}
 
 
-def evidence_summary():
-    """Group logged conflicts into patterns a decision-maker could act on."""
-    groups = {}
-    if LOG_PATH.exists():
-        with open(LOG_PATH, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                e = json.loads(line)
-                key = (e["site"], e["area"], e["type"])
-                g = groups.setdefault(key, {"count": 0, "sample": 0, "detail": e["detail"]})
-                g["count"] += 1
-                g["sample"] += 1 if e.get("sample") else 0
+# ---------- everyday prices ----------
 
-    patterns = []
-    for (site, area, kind), g in groups.items():
-        site_name = SITE_BY_ID.get(site, {}).get("name", site)
-        area_name = AREA_BY_ID.get(area, {}).get("name", area)
-        if kind == "curfew":
-            text = f"People living in {area_name} with a check-in at the {site_name} can't get home before curfew by transit."
-        else:
-            text = f"No transit runs from the {site_name} to {area_name} after evening obligations end."
-        patterns.append({"site": site_name, "area": area_name, "type": kind,
-                         "count": g["count"], "sample_count": g["sample"], "text": text})
-    patterns.sort(key=lambda p: -p["count"])
-    return {"patterns": patterns, "total": sum(p["count"] for p in patterns)}
+def _at_or_before(monthly, ym):
+    keys = [k for k in monthly if k <= ym]
+    return (keys[-1], True) if keys else (next(iter(monthly)), False)
+
+
+def prices_story(since):
+    """How much everyday prices rose between `since` (a date) and the latest month."""
+    if PRICES is None:
+        return {"available": False}
+    ym = f"{since.year}-{since.month:02d}"
+    rows, clamped = [], False
+    for name, s in PRICES["series"].items():
+        m = s["monthly"]
+        latest = list(m)[-1]
+        then_key, exact = _at_or_before(m, ym)
+        clamped = clamped or not exact
+        if then_key >= latest:
+            continue
+        rows.append({"id": name, "label": s["label"], "area": s["area"], "unit": s["unit"],
+                     "then": m[then_key], "now": m[latest], "then_month": then_key, "now_month": latest,
+                     "pct": round((m[latest] / m[then_key] - 1) * 100)})
+    return {"available": True, "clamped": clamped, "items": rows,
+            "source": PRICES["source"], "source_url": PRICES["source_url"]}
+
+
+# ---------- buses ----------
+
+def buses_near(lat, lon, radius_miles):
+    """Bus and train routes with a stop inside the circle, plus what changed on each."""
+    if STOPS is None or ROUTES is None:
+        return {"available": False}
+    near = []
+    for s in STOPS["stops"]:
+        d = miles_between(lat, lon, s["lat"], s["lon"])
+        if d <= radius_miles:
+            near.append({**s, "miles": round(d, 2)})
+    near.sort(key=lambda s: s["miles"])
+    by_route = {}
+    for s in near:
+        for r in s["routes"]:
+            e = by_route.setdefault(r, {"route": r, "stops": 0, "closest_miles": s["miles"]})
+            e["stops"] += 1
+    routes = []
+    for r, e in by_route.items():
+        info = ROUTES["routes"].get(r, {})
+        routes.append({**e, "name": info.get("name", ""), "color": info.get("color", "#0B6E99"),
+                       "type": info.get("type", 3), "trips_weekday": info.get("trips_weekday"),
+                       "change": CHANGES["routes"].get(r), "shapes": info.get("shapes", [])})
+    routes.sort(key=lambda r: (r["closest_miles"], r["route"]))
+    return {"available": True, "routes": routes, "stops": near[:120],
+            "source": ROUTES["source"], "source_url": ROUTES["source_url"],
+            "changes_source": CHANGES.get("source"), "changes_url": CHANGES.get("source_url")}
+
+
+def routes_gone(area_id):
+    return CHANGES.get("gone", {}).get(area_id, [])
+
+
+def nearby(lat, lon, zip_code, radius_miles):
+    """Everything for the 'My area' tab."""
+    area = nearest_area(lat, lon)
+    area_id = area["id"] if area else None
+    since = date(date.today().year - 5, date.today().month, 1)
+    return {
+        "area": {"id": area_id, "name": area["name"]} if area else None,
+        "radius_miles": radius_miles,
+        "rent": rent_story(zip_code, area_id),
+        "prices": prices_story(since),
+        "prices_since": since.isoformat(),
+        "buses": buses_near(lat, lon, radius_miles),
+        "gone": routes_gone(area_id) if area_id else [],
+    }
+
+
+# ---------- what changed since you went in ----------
+
+def min_wage_on(day):
+    steps = [(date.fromisoformat(d), v) for d, v in TIMELINE["min_wage"]["steps"]]
+    before = [v for d, v in steps if d <= day]
+    return before[-1] if before else None
+
+
+def changes_since(since_text, area_id, zip_code):
+    """Everything for the 'Since I went in' tab."""
+    try:
+        since = datetime.strptime(since_text, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValueError("That date doesn't look right. Pick it from the calendar.")
+    today = date.today()
+    if since > today:
+        raise ValueError("That date is in the future.")
+    wage_now = min_wage_on(today)
+    wage_then = min_wage_on(since)
+    events = []
+    for e in TIMELINE["events"]:
+        if "all" not in e["areas"] and area_id not in e["areas"]:
+            continue
+        d = date.fromisoformat(e["date"])
+        if d > since:
+            events.append({**e, "still_true": False})
+        elif e.get("always"):
+            events.append({**e, "still_true": True})
+    events.sort(key=lambda e: (e["still_true"], e["date"]))
+    return {
+        "since": since.isoformat(),
+        "years_away": round((today - since).days / 365.25, 1),
+        "area": {"id": area_id, "name": AREA_BY_ID[area_id]["name"]} if area_id in AREA_BY_ID else None,
+        "min_wage": {"then": wage_then, "now": wage_now, "source": TIMELINE["min_wage"]["source"],
+                     "source_url": TIMELINE["min_wage"]["source_url"]},
+        "rent": rent_story(zip_code, area_id, since.year),
+        "prices": prices_story(since),
+        "events": events,
+        "gone": routes_gone(area_id) if area_id else [],
+    }
