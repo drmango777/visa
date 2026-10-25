@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sail-by</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root { --ink:#12303A; --muted:#485f68; --bay:#07707E; --bay-d:#054F59; --line:#D4DDE0; --tint:#E4EEF0; --heat:#C2410C; --sun:#FFC531; --edge:#6F8791; }
+* { box-sizing: border-box; }
+html { font-size: 18px; }
+body { margin: 0; color: var(--ink); background: #fff; line-height: 1.45; font-family: "Atkinson Hyperlegible", Verdana, "Segoe UI", sans-serif; }
+h1 { font-size: 1.7rem; line-height: 1.2; margin: 0 0 .4rem; }
+h2 { font-size: 1.3rem; line-height: 1.25; margin: 0 0 .5rem; }
+h3 { font-size: 1.05rem; margin: 1.2rem 0 .3rem; }
+p { margin: 0 0 .7rem; }
+a { color: var(--bay-d); }
+:focus-visible { outline: 3px solid #f2a900; outline-offset: 2px; }
+.hint { color: var(--muted); font-size: .9rem; }
+.lead { color: var(--muted); max-width: 60ch; }
+[hidden] { display: none !important; }
+
+/* top bar */
+.top { border-bottom: 1px solid var(--line); background: #fff; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 28px; padding: 10px 20px 0; }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 1.4rem; font-weight: 700; padding-bottom: 8px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 2px; }
+.tab { min-height: 52px; padding: 0 16px; font: inherit; font-weight: 700; color: var(--muted); background: none; border: 0; border-bottom: 4px solid transparent; cursor: pointer; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--bay); }
+@media (max-width: 700px) { .tabs { display: grid; grid-template-columns: 1fr 1fr; width: 100%; } .tab { min-height: 48px; } }
+
+/* forms */
+label, .label { display: block; font-weight: 700; margin: 1.1rem 0 .3rem; }
+input[type=text], input[type=date], input[type=time], select, textarea { width: 100%; min-height: 52px; font: inherit; color: var(--ink); padding: .5rem .9rem; border: 2px solid var(--edge); border-radius: 8px; background: #fff; }
+textarea { resize: vertical; line-height: 1.4; }
+button.primary { min-height: 54px; font: inherit; font-weight: 700; color: #fff; background: var(--bay); border: 0; border-radius: 8px; padding: .4rem 1.5rem; cursor: pointer; }
+button.primary:hover { background: var(--bay-d); }
+button.primary[disabled] { opacity: .6; cursor: wait; }
+button.plain { min-height: 48px; font: inherit; font-weight: 700; color: var(--bay-d); background: #fff; border: 2px solid var(--bay); border-radius: 8px; padding: .2rem 1rem; cursor: pointer; }
+.seg { display: flex; flex-wrap: wrap; gap: 8px; }
+.seg button { flex: 1 1 auto; min-height: 48px; font: inherit; color: var(--ink); background: #fff; border: 2px solid var(--edge); border-radius: 8px; padding: .2rem .9rem; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 700; }
+.error { background: #fde9e1; color: #7a2a06; padding: .8rem 1rem; border-radius: 8px; margin-top: 1rem; }
+.notice { background: var(--tint); padding: .8rem 1rem; border-radius: 8px; margin: 1rem 20px; }
+
+/* layouts */
+.askwrap { max-width: 780px; margin: 0 auto; padding: 34px 20px 90px; }
+.twocol { display: grid; grid-template-columns: minmax(0, 430px) minmax(0, 1fr); min-height: calc(100vh - 80px); }
+.left { background: #fff; padding: 26px 28px 56px; }
+.right { background: var(--tint); padding: 40px 48px 64px; min-width: 0; }
+.right .inner { max-width: 720px; }
+.areagrid { display: grid; background: #fff; grid-template-columns: minmax(0, 430px) minmax(0, 1fr); grid-template-areas: "form map" "results map"; }
+.form { grid-area: form; padding: 26px 28px 0; }
+.results { grid-area: results; padding: 0 28px 56px; }
+.mapcol { grid-area: map; position: sticky; top: 0; align-self: start; height: 100vh; background: #3d6f7f; overflow: hidden; }
+#map, #map-leaflet { position: absolute; inset: 0; }
+#map-ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 2rem; color: #fff; font-size: 1.15rem; }
+#legend { position: absolute; left: 14px; bottom: 22px; z-index: 500; background: #fff; border-radius: 8px; padding: 10px 14px; font-size: .88rem; max-width: 250px; box-shadow: 0 1px 6px rgba(0,0,0,.3); }
+@media (max-width: 899px) {
+  .twocol { grid-template-columns: 1fr; }
+  .right { padding: 28px 20px 56px; }
+  .areagrid { grid-template-columns: 1fr; grid-template-areas: "form" "map" "results"; }
+  .mapcol { position: relative; height: 380px; }
+}
+
+/* answers and results */
+.turn { border-top: 1px solid var(--line); padding: 1.1rem 0; margin-top: 1.1rem; }
+.you { font-weight: 700; margin-bottom: .5rem; }
+.steps { margin: .2rem 0 .8rem; padding-left: 1.2rem; color: var(--muted); font-size: .95rem; }
+.answer { font-size: 1.1rem; white-space: pre-wrap; }
+.examples { display: flex; flex-direction: column; gap: 8px; margin-top: .6rem; }
+.examples button { text-align: left; min-height: 48px; font: inherit; color: var(--ink); background: #fff; border: 2px solid var(--line); border-radius: 8px; padding: .4rem .9rem; cursor: pointer; }
+.examples button:hover { border-color: var(--bay); }
+.block { padding: 22px 0; border-top: 1px solid var(--line); }
+.big { font-size: 1.4rem; font-weight: 700; line-height: 1.3; }
+.split { display: flex; gap: 16px; align-items: center; justify-content: space-between; }
+.row2 { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid #B9CDD2; }
+.row2:last-child { border-bottom: 1px solid #B9CDD2; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .5rem .3rem; border-top: 1px solid #E3E9EB; vertical-align: top; }
+th { font-size: .9rem; color: var(--muted); }
+.up { color: var(--heat); font-weight: 700; }
+.good { color: #17704a; font-weight: 700; }
+.src { font-size: .85rem; color: var(--muted); }
+details.grp { border: 1px solid var(--line); border-radius: 10px; margin: .7rem 0; padding: 0 1rem; }
+details.grp > summary, details.more > summary { min-height: 52px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; }
+details.more > summary { color: var(--bay-d); min-height: 46px; }
+.count { background: var(--tint); border-radius: 999px; padding: 0 .65rem; font-size: .9rem; }
+.route { display: flex; gap: 14px; padding: 10px 0; border-top: 1px solid #E3E9EB; }
+.chip { flex: none; min-width: 56px; min-height: 44px; font: inherit; font-weight: 700; color: #fff; background: var(--bay); border: 0; border-radius: 999px; cursor: pointer; }
+.chip[aria-pressed="true"] { outline: 3px solid var(--sun); outline-offset: 2px; }
+.route .name { font-weight: 700; }
+.route .meta { font-size: .92rem; color: var(--muted); }
+.route .change { font-size: .95rem; margin-top: 4px; }
+.gone { background: #fde9e1; border-radius: 10px; padding: .8rem 1rem; margin-top: .8rem; }
+.gone li { margin: .3rem 0; }
+.ev { display: flex; gap: 14px; }
+.ev .d { flex: none; width: 92px; text-align: right; padding-top: 2px; }
+.ev .d b { display: block; font-size: 1.5rem; line-height: 1.1; }
+.ev .d span { color: var(--muted); font-size: .92rem; }
+.ev .rail { flex: none; width: 24px; position: relative; }
+.ev .rail::before { content: ""; position: absolute; left: 11px; top: 0; bottom: 0; width: 2px; background: #8FAAB1; }
+.ev:last-child .rail::before { bottom: auto; height: 18px; }
+.ev .rail::after { content: ""; position: absolute; left: 4px; top: 6px; width: 16px; height: 16px; border-radius: 50%; background: var(--bay); border: 3px solid var(--tint); }
+.ev .body { flex: 1; min-width: 0; padding-bottom: 28px; }
+.ev h3 { margin: 0 0 4px; font-size: 1.2rem; line-height: 1.3; }
+.verdict { padding: 22px 24px; border-radius: 12px; }
+.verdict h2 { font-size: 1.7rem; margin: 0 0 6px; }
+.verdict.good { background: #DDF0E5; } .verdict.warn { background: #FFF0C2; } .verdict.bad { background: #FBE0D5; } .verdict.neutral { background: #fff; }
+.right ol { padding-left: 1.3rem; } .right ol li { margin: .4rem 0; }
+@media print { .top, .left, .form, .mapcol, button, .tabs { display: none !important; } .right { background: #fff; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path d="M15 3 L15 21 L5 21 Z" fill="#07707E"/><path d="M17 8 L17 21 L25 21 Z" fill="#12303A"/><path d="M3 24 L27 24 L24 28 L6 28 Z" fill="#12303A"/></svg>
+      Sail-by
+    </div>
+    <div class="tabs" role="tablist" aria-label="Pages">
+      <button class="tab" role="tab" id="t-ask" aria-selected="true">Ask Sail-by</button>
+      <button class="tab" role="tab" id="t-area" aria-selected="false">Where I'll live</button>
+      <button class="tab" role="tab" id="t-since" aria-selected="false">Date convicted</button>
+      <button class="tab" role="tab" id="t-curfew" aria-selected="false">Home by curfew</button>
+    </div>
+  </div>
+</header>
+<div id="data-notice" class="notice" hidden></div>
+
+<!-- ASK -->
+<section id="p-ask" role="tabpanel" aria-labelledby="t-ask">
+  <div class="askwrap">
+    <h1>Ask Sail-by</h1>
+    <p class="lead">Write in your own words. Say where you'll stay, when you were convicted, or where you have to be before curfew. Sail-by looks up the real numbers and answers in plain words. You can ask more questions after.</p>
+    <label for="ask">What do you want to know?</label>
+    <textarea id="ask" rows="3" maxlength="500" placeholder="Example: I'll stay near 1200 SW 8th St. I was convicted in March 2019. What changed?"></textarea>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:.7rem">
+      <button class="primary" id="ask-go" type="button">Ask</button>
+      <select id="ask-lang" aria-label="Language" style="width:auto"><option>English</option><option>Español</option><option>Kreyòl ayisyen</option></select>
+      <button class="plain" id="ask-reset" type="button" hidden>Start a new question</button>
+    </div>
+    <div class="examples" id="examples">
+      <button type="button">I'll stay near 1200 SW 8th St. I was convicted in March 2019. What changed?</button>
+      <button type="button">What buses are near 1200 SW 8th St?</button>
+      <button type="button">I finish work at 1 NW 1st Ave at 7:30 pm. Can I get to 1200 SW 8th St before my 9 pm curfew?</button>
+    </div>
+    <div id="thread" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- WHERE I'LL LIVE -->
+<section id="p-area" role="tabpanel" aria-labelledby="t-area" hidden>
+  <div class="areagrid">
+    <div class="form">
+      <h1>Look up a place</h1>
+      <p class="lead">Type the address where you'll stay. You'll see a map, what rent costs, and the buses close by.</p>
+      <form id="addr-form" novalidate>
+        <label for="addr" style="margin-top:.4rem">Address where you'll stay</label>
+        <input type="text" id="addr" autocomplete="street-address" placeholder="Example: 1200 SW 8th St, Miami">
+        <div class="label" id="r-label">How far do you want to look?</div>
+        <div class="seg" id="radius" role="group" aria-labelledby="r-label"></div>
+        <p class="hint" style="margin-top:.3rem">1 mile is about a 20 minute walk.</p>
+        <button class="primary" type="submit" id="addr-go" style="width:100%; margin-top:.8rem">Show me</button>
+        <div class="label" id="a-label">No address yet? Pick a neighborhood.</div>
+        <div class="seg" id="area-pick" role="group" aria-labelledby="a-label"></div>
+      </form>
+      <div id="area-error" class="error" role="alert" hidden></div>
+    </div>
+    <div class="results" id="results" aria-live="polite" hidden>
+      <p class="hint" id="where" style="margin:1.4rem 0 0"></p>
+      <div class="block" id="c-rent"></div>
+      <div class="block" id="c-prices"></div>
+      <div class="block" id="c-buses"></div>
+      <button class="plain" type="button" onclick="window.print()">Print this page</button>
+    </div>
+    <div class="mapcol">
+      <div id="map-ph">Your map will show here.<br>Type an address or pick a neighborhood.</div>
+      <div id="map" hidden></div><div id="map-leaflet" hidden></div>
+      <div id="legend" hidden>The pin is the address. The circle is how far we looked. Gray dots are bus stops. Tap a route number on the left to see where that bus goes.</div>
+    </div>
+  </div>
+</section>
+
+<!-- DATE CONVICTED -->
+<section id="p-since" role="tabpanel" aria-labelledby="t-since" hidden>
+  <div class="twocol">
+    <div class="left">
+      <h1>What changed since you were convicted?</h1>
+      <p class="lead">Enter the date. A guess is fine.</p>
+      <form id="since-form" novalidate>
+        <label for="date">Date convicted</label>
+        <input type="date" id="date" min="1990-01-01">
+        <div class="label" id="s-label">Where will you stay?</div>
+        <div class="seg" id="since-area" role="group" aria-labelledby="s-label"></div>
+        <p class="hint" id="since-hint" style="margin-top:.3rem"></p>
+        <button class="primary" type="submit" id="since-go" style="width:100%; margin-top:.8rem">Show what changed</button>
+      </form>
+      <div id="since-error" class="error" role="alert" hidden></div>
+    </div>
+    <div class="right"><div class="inner" id="since-out" aria-live="polite">
+      <p class="lead">Pick a date and a neighborhood. What changed will show up here.</p>
+    </div></div>
+  </div>
+</section>
+
+<!-- HOME BY CURFEW -->
+<section id="p-curfew" role="tabpanel" aria-labelledby="t-curfew" hidden>
+  <div class="twocol">
+    <div class="left">
+      <h1>Can I get home before curfew?</h1>
+      <p class="lead">Tell us where you'll be and when you're done. We'll check the bus and walking.</p>
+      <form id="curfew-form" novalidate>
+        <label for="c-from">Where will you be before you go home?</label>
+        <input type="text" id="c-from" placeholder="Example: your work, check-in office, or class">
+        <label for="c-end">What time are you done there?</label>
+        <input type="time" id="c-end">
+        <label for="c-home">Where do you sleep?</label>
+        <input type="text" id="c-home" placeholder="Example: 1200 SW 8th St, Miami">
+        <label for="c-time">What time is your curfew?</label>
+        <input type="time" id="c-time">
+        <button class="primary" type="submit" id="c-go" style="width:100%; margin-top:1.1rem">Can I make it home?</button>
+      </form>
+      <div id="c-error" class="error" role="alert" hidden></div>
+    </div>
+    <div class="right"><div class="inner" id="c-out" aria-live="polite">
+      <p class="lead">Fill in the four boxes. Your answer will show up here.</p>
+    </div></div>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const money = (n) => "$" + Math.round(n).toLocaleString("en-US");
+const money2 = (n) => "$" + n.toFixed(2);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const MILES = { 0.5: "Half a mile", 1: "1 mile", 2: "2 miles" };
+const TABS = ["ask", "area", "since", "curfew"];
+const state = { cfg: null, radius: 1, place: null, areaId: "", zip: "", sinceArea: "", sinceDate: "" };
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : "Something went wrong. Try again.");
+  return j;
+}
+function showError(id, msg) { const e = $(id); e.textContent = msg || ""; e.hidden = !msg; }
+function fmtDate(iso) { return new Date(iso + "T12:00:00").toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }); }
+function monthName(ym) { const [y, m] = ym.split("-"); return new Date(+y, +m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" }); }
+function srcLine(label, url) { return `<p class="src">Source: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(label)}</a></p>`; }
+
+/* tabs */
+function openTab(which) {
+  for (const t of TABS) { $("#t-" + t).setAttribute("aria-selected", String(t === which)); $("#p-" + t).hidden = t !== which; }
+  if (which === "area") Maps.refresh();
+  if (which === "curfew" && !$("#c-home").value && state.place) $("#c-home").value = state.place.matched;
+  window.scrollTo(0, 0);
+}
+TABS.forEach((t) => ($("#t-" + t).onclick = () => openTab(t)));
+document.addEventListener("keydown", (e) => {
+  if (!e.target.classList.contains("tab") || !["ArrowLeft", "ArrowRight"].includes(e.key)) return;
+  const i = TABS.indexOf(e.target.id.slice(2)), n = TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length];
+  openTab(n); $("#t-" + n).focus();
+});
+function segment(el, items, onPick, selected) {
+  el.innerHTML = "";
+  for (const it of items) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = it.label; b.dataset.value = it.value;
+    b.setAttribute("aria-pressed", String(String(it.value) === String(selected)));
+    b.onclick = () => { for (const o of el.children) o.setAttribute("aria-pressed", String(o === b)); onPick(it.value); };
+    el.appendChild(b);
+  }
+}
+function setSegment(el, v) { for (const b of el.children) b.setAttribute("aria-pressed", String(b.dataset.value === String(v))); }
+
+/* map: satellite (Esri, free) with a street-map switch; Google if a key is set */
+const DOT = { base: { fill: "#9fb0be", edge: "#6b7f90", op: 0.9, osm: 4, g: 18 }, dim: { fill: "#d5dee5", edge: "#d5dee5", op: 0.6, osm: 3, g: 14 }, hit: { edge: "#13293d", op: 1, osm: 7, g: 32 } };
+const Maps = {
+  kind: null, ready: null, g: null, items: [], lines: {}, dots: [], colors: {},
+  init(key) {
+    if (this.ready) return this.ready;
+    this.ready = new Promise((resolve) => {
+      if (!key) { this.kind = "osm"; return resolve(); }
+      window.__gmapsReady = () => { this.kind = "google"; resolve(); };
+      const s = document.createElement("script");
+      s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__gmapsReady`;
+      s.async = true; s.onerror = () => { this.kind = "osm"; resolve(); };
+      setTimeout(() => { if (!this.kind) { this.kind = "osm"; resolve(); } }, 8000);
+      document.head.appendChild(s);
+    });
+    return this.ready;
+  },
+  refresh() { if (!this.g) return; if (this.kind === "google") google.maps.event.trigger(this.g, "resize"); else this.g.invalidateSize(); },
+  clear() { this.items.forEach((i) => (this.kind === "google" ? i.setMap(null) : i.remove())); this.items = []; this.lines = {}; this.dots = []; },
+  show(lat, lon, miles, stops, routes) {
+    $("#map-ph").hidden = true; $("#legend").hidden = false;
+    $("#map").hidden = this.kind !== "google"; $("#map-leaflet").hidden = this.kind === "google";
+    this.colors = Object.fromEntries(routes.map((r) => [r.route, r.color]));
+    const meters = miles * 1609.34;
+    if (this.kind === "google") return this.showGoogle(lat, lon, meters, stops, routes);
+    this.showOsm(lat, lon, meters, stops, routes);
+  },
+  showGoogle(lat, lon, meters, stops, routes) {
+    if (!this.g) this.g = new google.maps.Map($("#map"), { center: { lat, lng: lon }, zoom: 14, mapTypeId: "hybrid", mapTypeControl: true, mapTypeControlOptions: { mapTypeIds: ["hybrid", "roadmap"] }, streetViewControl: false, fullscreenControl: false, clickableIcons: false });
+    this.clear();
+    const c = { lat, lng: lon };
+    const circle = new google.maps.Circle({ map: this.g, center: c, radius: meters, strokeColor: "#FFC531", strokeWeight: 3, fillColor: "#FFC531", fillOpacity: 0.08, clickable: false });
+    this.items.push(circle, new google.maps.Marker({ map: this.g, position: c, title: "The address" }));
+    for (const r of routes) for (const shape of r.shapes) {
+      const pl = new google.maps.Polyline({ map: this.g, path: shape.map(([a, b]) => ({ lat: a, lng: b })), strokeColor: r.color, strokeWeight: 6, strokeOpacity: 0, clickable: false });
+      this.items.push(pl); (this.lines[r.route] ||= []).push(pl);
+    }
+    for (const s of stops) {
+      const o = new google.maps.Circle({ map: this.g, center: { lat: s.lat, lng: s.lon }, radius: DOT.base.g, strokeWeight: 1, clickable: false });
+      const d = { o, routes: s.routes }; this.items.push(o); this.dots.push(d); this.styleDot(d, DOT.base);
+    }
+    this.g.fitBounds(circle.getBounds(), 20);
+  },
+  showOsm(lat, lon, meters, stops, routes) {
+    if (!this.g) {
+      this.g = L.map("map-leaflet");
+      const esri = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+      const sat = L.layerGroup([
+        L.tileLayer(esri + "World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics" }),
+        L.tileLayer(esri + "Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }),
+        L.tileLayer(esri + "Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }),
+      ]).addTo(this.g);
+      const street = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" });
+      L.control.layers({ "Satellite photo": sat, "Street map": street }, null, { collapsed: false }).addTo(this.g);
+    }
+    this.g.invalidateSize();
+    this.g.setView([lat, lon], 14);
+    this.clear();
+    const bounds = L.latLng(lat, lon).toBounds(meters * 2);
+    const circle = L.circle([lat, lon], { radius: meters, color: "#FFC531", weight: 3, fillOpacity: 0.08, interactive: false }).addTo(this.g);
+    this.items.push(circle, L.marker([lat, lon]).addTo(this.g).bindTooltip("The address"));
+    for (const r of routes) for (const shape of r.shapes) {
+      const pl = L.polyline(shape, { color: r.color, weight: 6, opacity: 0, interactive: false }).addTo(this.g);
+      this.items.push(pl); (this.lines[r.route] ||= []).push(pl);
+    }
+    for (const s of stops) {
+      const o = L.circleMarker([s.lat, s.lon], { weight: 1 }).addTo(this.g).bindTooltip(s.name);
+      const d = { o, routes: s.routes }; this.items.push(o); this.dots.push(d); this.styleDot(d, DOT.base);
+    }
+    this.g.fitBounds(bounds, { padding: [20, 20] });
+  },
+  styleDot(d, s, color) {
+    const fill = s.fill || color;
+    if (this.kind === "google") d.o.setOptions({ fillColor: fill, strokeColor: s.edge, fillOpacity: s.op, strokeOpacity: s.op, radius: s.g });
+    else d.o.setStyle({ fillColor: fill, color: s.edge, fillOpacity: s.op, opacity: s.op, radius: s.osm });
+  },
+  focus(route) {
+    const google = this.kind === "google";
+    for (const [name, lines] of Object.entries(this.lines)) for (const pl of lines) {
+      const op = route && name === route ? 0.95 : 0;
+      google ? pl.setOptions({ strokeOpacity: op }) : pl.setStyle({ opacity: op });
+    }
+    for (const d of this.dots) {
+      if (!route) this.styleDot(d, DOT.base);
+      else if (d.routes.includes(route)) this.styleDot(d, DOT.hit, this.colors[route]);
+      else this.styleDot(d, DOT.dim);
+    }
+  },
+};
+
+/* result pieces */
+function spark(points) {
+  if (!points || points.length < 2) return "";
+  const W = 90, H = 56, P = 6, xs = points.map((p) => p[0]), ys = points.map((p) => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const px = (x) => P + ((x - x0) / (x1 - x0 || 1)) * (W - 2 * P), py = (y) => H - P - ((y - y0) / (y1 - y0 || 1)) * (H - 2 * P);
+  const d = points.map((p, i) => (i ? "L" : "M") + px(p[0]).toFixed(1) + " " + py(p[1]).toFixed(1)).join(" ");
+  const last = points[points.length - 1];
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Rent over time, going from ${money(points[0][1])} to ${money(last[1])}" style="flex:none"><path d="${d}" fill="none" stroke="#C2410C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${px(last[0])}" cy="${py(last[1])}" r="4.5" fill="#C2410C"/></svg>`;
+}
+function missing(what) { return `<p>${what} isn't loaded yet.</p><p class="hint">Run <code>python scripts/update_all_data.py</code>, then restart the app.</p>`; }
+function rentBlock(r, heading) {
+  if (!r || !r.available) return `<h2>Rent</h2>` + (r && r.reason ? `<p>${esc(r.reason)}</p>` : missing("Rent data"));
+  let h = `<h2>${heading || "Rent"}</h2>`;
+  if (!r.then) h += `<p class="big">Typical rent is ${money(r.now)} a month.</p>`;
+  else {
+    h += `<div class="split"><div><p class="big" style="margin-bottom:.3rem">Rent here is up ${money(r.diff)} a month since ${r.then_year}.</p>
+      <p>It was ${money(r.then)} then. It's ${money(r.now)} now. (ZIP code ${esc(r.zip)})</p></div>${spark(r.history.filter((x) => x[0] >= r.then_year))}</div>`;
+    if (r.clamped) h += `<p class="hint">Our rent numbers only go back to ${r.first_year}.</p>`;
+  }
+  return h + `<p class="src">${esc(r.note)}</p>` + srcLine(r.source, r.source_url);
+}
+function pricesBlock(p) {
+  if (!p || !p.available) return `<h2>Prices at the store</h2>` + missing("Price data");
+  const cpi = p.items.find((i) => i.id === "cpi_miami"), rest = p.items.filter((i) => i.id !== "cpi_miami");
+  let h = `<h2>Prices at the store</h2>`;
+  if (cpi) h += `<p class="big" style="margin-bottom:.3rem">Prices overall in Miami are up ${cpi.pct}% since ${monthName(cpi.then_month)}.</p><p>Something that cost $100 then costs about ${money(100 + cpi.pct)} now.</p>`;
+  if (rest.length) h += `<table><thead><tr><th>Item</th><th>Then</th><th>Now</th><th>Change</th></tr></thead><tbody>` +
+    rest.map((i) => `<tr><td>${esc(i.label)}<div class="hint">${esc(i.area)}</div></td><td>${money2(i.then)}</td><td>${money2(i.now)}</td><td><span class="${i.pct > 0 ? "up" : "good"}">${i.pct > 0 ? "+" : ""}${i.pct}%</span></td></tr>`).join("") + `</tbody></table>`;
+  return h + srcLine(p.source, p.source_url);
+}
+function goneBlock(list) {
+  if (!list || !list.length) return "";
+  return `<div class="gone"><strong>Buses that no longer run here</strong><ul>` + list.map((g) => `<li><strong>${esc(g.route)}.</strong> ${esc(g.instead)}</li>`).join("") + `</ul></div>`;
+}
+const GROUPS = [
+  ["local", "Local buses", "Run all day, most days.", true],
+  ["rail", "Metrorail and Metromover", "Trains and the free downtown loop.", false],
+  ["express", "Express and rush-hour buses", "Fewer trips, mostly weekday mornings and afternoons.", false],
+  ["night", "Overnight buses", "Run when the others don't.", false],
+];
+function busGroup(r) { if (r.type !== 3) return "rail"; if (/owl/i.test(r.name)) return "night"; if (/max|express|park & ride/i.test(r.name)) return "express"; return "local"; }
+function routeRow(r) {
+  return `<div class="route"><button class="chip" type="button" data-route="${esc(r.route)}" aria-pressed="false" style="background:${esc(r.color)}" aria-label="Show route ${esc(r.route)} on the map">${esc(r.route)}</button>
+    <div><div class="name">${esc(r.name || "Route " + r.route)}</div><div class="meta">Closest stop is ${r.closest_miles} mi away</div>
+    ${r.change ? `<div class="change"><strong>Changed:</strong> ${esc(r.change)}</div>` : ""}</div></div>`;
+}
+function busBlock(b, gone, miles) {
+  if (!b || !b.available) return `<h2>Buses and trains near you</h2>` + missing("Bus data");
+  let h = `<h2>Buses and trains within ${MILES[miles].toLowerCase()}</h2>`;
+  if (!b.routes.length) h += `<p>No bus or train stops are this close. Try a bigger distance.</p>`;
+  else {
+    const by = {}; for (const r of b.routes) (by[busGroup(r)] ||= []).push(r);
+    h += `<p class="hint">Tap a route number to see where it goes on the map.</p>` + GROUPS.filter((g) => by[g[0]]).map(([id, title, hint, open]) => {
+      const list = by[id], first = list.slice(0, 6), more = list.slice(6);
+      return `<details class="grp"${open ? " open" : ""}><summary>${title} <span class="count">${list.length}</span></summary><p class="hint">${hint}</p>${first.map(routeRow).join("")}
+        ${more.length ? `<details class="more"><summary>Show ${more.length} more</summary>${more.map(routeRow).join("")}</details>` : ""}</details>`;
+    }).join("");
+  }
+  return h + goneBlock(gone) + `<p class="src">Routes and stops: <a href="${esc(b.source_url)}" target="_blank" rel="noopener">Miami-Dade Transit</a>. Changes come from the county's <a href="${esc(b.changes_url)}" target="_blank" rel="noopener">route guide</a> for the big bus change of Nov. 13, 2023. Before you ride, check the GO Miami-Dade Transit app or call 311.</p>`;
+}
+
+/* WHERE I'LL LIVE */
+async function loadArea(place) {
+  showError("#area-error", "");
+  const go = $("#addr-go"); go.disabled = true; go.textContent = "Looking...";
+  try {
+    const d = await api(`/api/nearby?lat=${place.lat}&lon=${place.lon}&zip=${encodeURIComponent(place.zip || "")}&radius=${state.radius}`);
+    state.place = { ...place, radius: state.radius, area_id: d.area ? d.area.id : "" };
+    state.areaId = d.area ? d.area.id : ""; state.zip = place.zip || "";
+    $("#results").hidden = false;
+    $("#where").innerHTML = `Showing <strong>${esc(place.matched)}</strong>` + (d.area ? `, in <strong>${esc(d.area.name)}</strong>.` : `. This is outside Little Havana, Downtown, and Overtown, so the rent and price numbers are for the closest ZIP code we have.`);
+    $("#c-rent").innerHTML = rentBlock(d.rent);
+    $("#c-prices").innerHTML = pricesBlock(d.prices);
+    $("#c-buses").innerHTML = busBlock(d.buses, d.gone, state.radius);
+    await Maps.init(state.cfg.maps_key);
+    const routes = d.buses.available ? d.buses.routes : [];
+    try { Maps.show(place.lat, place.lon, state.radius, d.buses.available ? d.buses.stops : [], routes); } catch (err) { console.error(err); }
+    document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => {
+      const on = c.getAttribute("aria-pressed") !== "true";
+      document.querySelectorAll(".chip").forEach((o) => o.setAttribute("aria-pressed", "false"));
+      c.setAttribute("aria-pressed", String(on)); Maps.focus(on ? c.dataset.route : null);
+      if (window.innerWidth < 900 && on) $(".mapcol").scrollIntoView({ behavior: "smooth" });
+    }));
+    syncSinceArea();
+  } catch (e) { showError("#area-error", e.message); }
+  go.disabled = false; go.textContent = "Show me";
+}
+$("#addr-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const q = $("#addr").value.trim();
+  if (q.length < 3) return showError("#area-error", "Type an address first, or pick a neighborhood below.");
+  const go = $("#addr-go"); go.disabled = true; go.textContent = "Looking...";
+  try { await loadArea(await api("/api/geocode?q=" + encodeURIComponent(q))); } catch (e) { showError("#area-error", e.message); }
+  go.disabled = false; go.textContent = "Show me";
+});
+
+/* DATE CONVICTED */
+function syncSinceArea() {
+  if (state.areaId) { state.sinceArea = state.areaId; setSegment($("#since-area"), state.areaId); }
+  $("#since-hint").textContent = state.areaId ? "We filled this in from your address. You can change it." : "Not sure? Pick the closest one.";
+}
+$("#since-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const d = $("#date").value;
+  if (!d) return showError("#since-error", "Pick the date you were convicted.");
+  if (!state.sinceArea) return showError("#since-error", "Pick where you'll stay.");
+  showError("#since-error", "");
+  const go = $("#since-go"); go.disabled = true; go.textContent = "Looking...";
+  try {
+    const area = state.cfg.areas.find((a) => a.id === state.sinceArea);
+    const zip = state.zip && state.areaId === state.sinceArea ? state.zip : area.zips[0];
+    const f = await api(`/api/since?date=${d}&area=${state.sinceArea}&zip=${zip}`);
+    state.sinceDate = d; renderSince(f, zip);
+  } catch (e) { showError("#since-error", e.message); }
+  go.disabled = false; go.textContent = "Show what changed";
+});
+function eventRow(e) {
+  const dt = new Date(e.date + "T12:00:00");
+  return `<div class="ev"><div class="d"><b>${dt.getFullYear()}</b><span>${dt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span></div><div class="rail"></div>
+    <div class="body"><h3>${esc(e.title)}</h3><p>${esc(e.detail)}</p><p><strong>What to do:</strong> ${esc(e.action)}</p>
+    <p class="src">Source: <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.source)}</a></p></div></div>`;
+}
+function renderSince(f, zip) {
+  const w = f.min_wage, r = f.rent, cpi = (f.prices.items || []).find((i) => i.id === "cpi_miami");
+  let h = `<h2 style="font-size:1.9rem">It's been about ${f.years_away} years since ${fmtDate(f.since)}.</h2>
+    <p class="lead">Here's what changed${f.area ? " in and around " + esc(f.area.name) : ""}.</p><h3>Money</h3>`;
+  if (w.now) h += `<div class="row2"><span>Minimum wage</span><span><strong>${money2(w.now)} an hour now</strong> <span class="hint">${w.then ? "was " + money2(w.then) : "was under $8.46"}</span></span></div>`;
+  if (r && r.available && r.then) h += `<div class="row2"><span>Rent in ZIP code ${esc(zip)}</span><span><strong>${money(r.now)} a month now</strong> <span class="hint">was ${money(r.then)} in ${r.then_year}</span></span></div>`;
+  if (cpi) h += `<div class="row2"><span>Prices overall in Miami</span><span><strong>up ${cpi.pct}%</strong> <span class="hint">since then</span></span></div>`;
+  const news = f.events.filter((e) => !e.still_true), still = f.events.filter((e) => e.still_true);
+  h += `<h3 style="margin-top:2rem">New things to know</h3>` + (news.length ? `<div style="margin-top:1rem">${news.map(eventRow).join("")}</div>` : `<p>Nothing new on our list since that date.</p>`);
+  if (still.length) h += `<h3 style="margin-top:1.4rem">Still good to know</h3>` + still.map((e) => `<div class="row2" style="display:block"><strong>${esc(e.title)}</strong> ${esc(e.detail)} <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.source)}</a></div>`).join("");
+  h += goneBlock(f.gone) + `<p style="margin-top:1.4rem"><button class="plain" type="button" onclick="window.print()">Print this page</button></p>`;
+  $("#since-out").innerHTML = h;
+}
+
+/* HOME BY CURFEW */
+function renderCurfew(r) {
+  const cls = { ok: "good", tight: "warn", late: "bad", no_bus: "bad", walk: "warn" }[r.status] || "neutral";
+  let h = `<div class="verdict ${cls}"><h2>${esc(r.headline)}</h2>${r.last_bus_line ? `<p style="margin:0">${esc(r.last_bus_line)}</p>` : ""}</div>`;
+  if (r.plan && r.plan.length) h += `<h3 style="margin-top:1.6rem">How you'd do it</h3><ol>${r.plan.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>`;
+  h += `<h3>Walking</h3><p>${esc(r.walk_line)}</p>`;
+  if (["tight", "late", "no_bus", "no_direct", "walk"].includes(r.status)) h += `<h3>What to do</h3><p>${esc(r.advice)}</p>`;
+  h += `<p class="hint" style="margin-top:1.4rem">${r.notes.map(esc).join("<br>")}</p><p><button class="plain" type="button" onclick="window.print()">Print this page</button></p>`;
+  $("#c-out").innerHTML = h;
+}
+async function runCurfew(c) {
+  const r = await api(`/api/curfew?lat1=${c.lat1}&lon1=${c.lon1}&lat2=${c.lat2}&lon2=${c.lon2}&end=${c.end}&curfew=${c.curfew}`);
+  renderCurfew(r);
+}
+$("#curfew-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const from = $("#c-from").value.trim(), home = $("#c-home").value.trim(), end = $("#c-end").value, cur = $("#c-time").value;
+  if (from.length < 3 || home.length < 3) return showError("#c-error", "Fill in both addresses.");
+  if (!end || !cur) return showError("#c-error", "Pick both times from the clock.");
+  showError("#c-error", "");
+  const go = $("#c-go"); go.disabled = true; go.textContent = "Checking...";
+  try {
+    const a = await api("/api/geocode?q=" + encodeURIComponent(from)), b = await api("/api/geocode?q=" + encodeURIComponent(home));
+    await runCurfew({ lat1: a.lat, lon1: a.lon, lat2: b.lat, lon2: b.lon, end, curfew: cur });
+  } catch (e) { showError("#c-error", e.message); }
+  go.disabled = false; go.textContent = "Can I make it home?";
+});
+
+/* ASK SAIL-BY (the agent) */
+const chat = [];
+function context() {
+  return { place: state.place ? { lat: state.place.lat, lon: state.place.lon, zip: state.place.zip || "", matched: state.place.matched, radius: state.radius, area_id: state.areaId } : null,
+           since: state.sinceDate ? { date: state.sinceDate, area_id: state.sinceArea, zip: state.zip } : null };
+}
+async function ask(text) {
+  const q = (text ?? $("#ask").value).trim();
+  if (q.length < 3) return;
+  const btn = $("#ask-go"); btn.disabled = true; btn.textContent = "Working...";
+  const turn = document.createElement("div"); turn.className = "turn";
+  turn.innerHTML = `<p class="you">${esc(q)}</p><p class="hint">Sail-by is looking things up. This can take up to 30 seconds.</p>`;
+  $("#thread").appendChild(turn); $("#ask").value = ""; $("#examples").hidden = true; $("#ask-reset").hidden = false;
+  turn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  try {
+    const r = await api("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: q, language: $("#ask-lang").value, history: chat.slice(-8), context: context() }) });
+    chat.push({ role: "user", content: q }, { role: "assistant", content: r.answer });
+    const acts = [];
+    if (r.place) acts.push(["map", "See the map and buses"]);
+    if (r.since) acts.push(["since", "See what changed"]);
+    if (r.curfew) acts.push(["curfew", "See the curfew check"]);
+    turn.innerHTML = `<p class="you">${esc(q)}</p>` + (r.steps.length ? `<p class="hint" style="margin:0">What Sail-by checked:</p><ul class="steps">${r.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : "") +
+      `<p class="answer">${esc(r.answer)}</p>` + (acts.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap">${acts.map(([k, l]) => `<button class="plain" type="button" data-act="${k}">${l}</button>`).join("")}</div>` : "") +
+      `<p class="hint" style="margin-top:.8rem">Ask another question in the box above, like a follow-up.</p>`;
+    if (r.place) {
+      state.radius = r.place.radius || state.radius; setSegment($("#radius"), state.radius); $("#addr").value = "";
+      turn.querySelector('[data-act="map"]').onclick = async () => { openTab("area"); await loadArea({ lat: r.place.lat, lon: r.place.lon, zip: r.place.zip, matched: r.place.matched }); };
+      state.place = { ...r.place }; state.areaId = r.place.area_id || ""; state.zip = r.place.zip || "";
+    }
+    if (r.since) {
+      state.sinceArea = r.since.area_id || state.sinceArea; state.sinceDate = r.since.date; $("#date").value = r.since.date; syncSinceArea();
+      try { renderSince(await api(`/api/since?date=${r.since.date}&area=${state.sinceArea || ""}&zip=${r.since.zip || ""}`), r.since.zip || ""); } catch (e) { /* the answer stands */ }
+      turn.querySelector('[data-act="since"]').onclick = () => openTab("since");
+    }
+    if (r.curfew) {
+      const c = r.curfew; $("#c-from").value = c.from; $("#c-home").value = c.home; $("#c-end").value = c.end; $("#c-time").value = c.curfew;
+      try { await runCurfew({ lat1: c.lat1, lon1: c.lon1, lat2: c.lat2, lon2: c.lon2, end: c.end, curfew: c.curfew }); } catch (e) { /* the answer stands */ }
+      turn.querySelector('[data-act="curfew"]').onclick = () => openTab("curfew");
+    }
+  } catch (e) {
+    turn.innerHTML = `<p class="you">${esc(q)}</p><div class="error">${esc(e.message)}</div>`;
+    $("#ask").value = q;
+  }
+  btn.disabled = false; btn.textContent = "Ask";
+  turn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+$("#ask-go").onclick = () => ask();
+$("#ask").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) ask(); });
+$("#ask-reset").onclick = () => { chat.length = 0; $("#thread").innerHTML = ""; $("#examples").hidden = false; $("#ask-reset").hidden = true; $("#ask").focus(); };
+document.querySelectorAll("#examples button").forEach((b) => (b.onclick = () => { $("#ask").value = b.textContent; $("#ask").focus(); }));
+
+/* start */
+(async function start() {
+  try { state.cfg = await api("/api/config"); } catch (e) { return; }
+  const cfg = state.cfg;
+  $("#date").max = cfg.today;
+  const miss = ["rent", "prices", "buses"].filter((k) => !cfg.data[k]);
+  if (miss.length) { const n = $("#data-notice"); n.hidden = false; n.innerHTML = `<strong>Some data isn't loaded yet:</strong> ${miss.join(", ")}.`; }
+  segment($("#radius"), [0.5, 1, 2].map((v) => ({ value: v, label: MILES[v] })), (v) => { state.radius = Number(v); if (state.place) loadArea(state.place); }, state.radius);
+  segment($("#area-pick"), cfg.areas.map((a) => ({ value: a.id, label: a.name })), (id) => {
+    const a = cfg.areas.find((x) => x.id === id); $("#addr").value = "";
+    loadArea({ lat: a.lat, lon: a.lon, zip: a.zips[0], matched: a.name + " (the middle of the neighborhood)" });
+  }, "");
+  segment($("#since-area"), cfg.areas.map((a) => ({ value: a.id, label: a.name })), (id) => { state.sinceArea = id; }, "");
+  syncSinceArea();
+})();
+</script>
+</body>
+</html>
