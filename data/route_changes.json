@@ -1,0 +1,62 @@
+{
+  "source": "Miami-Dade County, Better Bus Network route-by-route guide (Nov 13, 2023)",
+  "source_url": "https://www.miamidade.gov/transit/library/bbn/better-bus-map-book.pdf",
+  "date": "2023-11-13",
+  "routes": {
+    "2": "Made shorter in the Nov 2023 bus redesign.",
+    "3": "Path changed in Nov 2023. Part of its old path is now covered by route 75.",
+    "7": "Path changed in Nov 2023. Some weekday rush-hour trips (7A) start at the Airport station.",
+    "8": "Made longer in Nov 2023. The old 8A branch was cut.",
+    "9": "Path changed in Nov 2023, and a new 9A branch was added.",
+    "11": "Path changed in Nov 2023. Some old stretches are now covered by free MetroConnect rides.",
+    "12": "No change in the Nov 2023 redesign.",
+    "15": "Used to be route A. Made longer and renumbered in Nov 2023.",
+    "17": "Made longer in Nov 2023, and a new 17A branch was added.",
+    "21": "No change in the Nov 2023 redesign.",
+    "22": "Made shorter in Nov 2023. Routes 17 and 75 cover part of its old path.",
+    "24": "Made shorter in Nov 2023 (it used to be the Coral Way Limited).",
+    "26": "Used to be route B. Made shorter and renumbered in 2023.",
+    "27": "Made longer in Nov 2023.",
+    "36": "Path changed in Nov 2023. The 36B branch was cut.",
+    "37": "Made longer in Nov 2023.",
+    "54": "Path changed in Nov 2023.",
+    "56": "Made longer in Nov 2023.",
+    "75": "Made longer in Nov 2023, and a new 75A branch was added.",
+    "77": "Same path after Nov 2023. It also replaced the old 277 NW 7th Avenue MAX.",
+    "97": "Used to be route 1. New number, same path.",
+    "100": "Used to be the 120 Beach MAX. Path changed in Nov 2023.",
+    "203": "Used to be the 93 Biscayne MAX. New number, same path.",
+    "207": "Little Havana Connection. No route change in Nov 2023.",
+    "208": "Little Havana Connection. No route change in Nov 2023.",
+    "211": "Heads up: 211 used to be the Overtown Circulator. Since Nov 2023, 211 is the Flagler MAX (the old route 51), weekday rush hours only.",
+    "279": "Used to be the 79 Street MAX. New number, same path.",
+    "400": "Overnight bus. Used to be the 500 Midnight Owl. New number, same path.",
+    "401": "Overnight bus. Used to be the 246 Night Owl. New number, same path.",
+    "836": "Express bus, renamed 836 Express Dolphin Park & Ride in 2023.",
+    "837": "Express bus to Tamiami Park & Ride. Renamed in 2023."
+  },
+  "gone": {
+    "overtown": [
+      {
+        "route": "211 Overtown Circulator",
+        "instead": "Use routes 2, 7, 9, or 77, or book a free MetroConnect ride."
+      },
+      {
+        "route": "277 NW 7th Avenue MAX",
+        "instead": "Use route 77, or book a free MetroConnect ride."
+      }
+    ],
+    "downtown": [
+      {
+        "route": "95 Express to Broward (Broward Blvd and Sheridan St)",
+        "instead": "These express trips to Broward were discontinued. The 95 Golden Glades Express still runs."
+      }
+    ],
+    "little-havana": [
+      {
+        "route": "8A branch on SW 8 St",
+        "instead": "Use route 8, 24, or 211, or book a free MetroConnect ride."
+      }
+    ]
+  }
+}

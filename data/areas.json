@@ -1,0 +1,26 @@
+[
+  {
+    "id": "little-havana",
+    "name": "Little Havana",
+    "lat": 25.7656,
+    "lon": -80.2195,
+    "zips": ["33135", "33130"],
+    "landmark": "Máximo Gómez Park, SW 8 St and 15 Ave"
+  },
+  {
+    "id": "downtown",
+    "name": "Downtown",
+    "lat": 25.7743,
+    "lon": -80.1937,
+    "zips": ["33132", "33131", "33128"],
+    "landmark": "Flagler St and Miami Ave"
+  },
+  {
+    "id": "overtown",
+    "name": "Overtown",
+    "lat": 25.7835,
+    "lon": -80.2010,
+    "zips": ["33136"],
+    "landmark": "Lyric Theatre, NW 2 Ave and 9 St"
+  }
+]

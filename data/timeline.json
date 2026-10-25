@@ -1,0 +1,182 @@
+{
+  "note": "Hand-checked list. Every item links to its source. Add new items the same way.",
+  "min_wage": {
+    "source": "Florida Amendment 2 (2020) schedule, reported by FOX 35 Orlando and WKMG",
+    "source_url": "https://www.fox35orlando.com/news/floridas-minimum-wage-goes-up-2026-when-how-much",
+    "before_first": "less than $8.46",
+    "steps": [
+      [
+        "2019-01-01",
+        8.46
+      ],
+      [
+        "2020-01-01",
+        8.56
+      ],
+      [
+        "2021-01-01",
+        8.65
+      ],
+      [
+        "2021-09-30",
+        10.0
+      ],
+      [
+        "2022-09-30",
+        11.0
+      ],
+      [
+        "2023-09-30",
+        12.0
+      ],
+      [
+        "2024-09-30",
+        13.0
+      ],
+      [
+        "2025-09-30",
+        14.0
+      ],
+      [
+        "2026-09-30",
+        15.0
+      ]
+    ]
+  },
+  "events": [
+    {
+      "date": "2019-01-08",
+      "areas": [
+        "all"
+      ],
+      "kind": "rights",
+      "title": "Many people with felony convictions can vote again",
+      "detail": "Amendment 4 restores voting rights after you finish every part of your sentence: prison, probation or parole, and all court fines, fees, and restitution. It does not cover murder or felony sexual offense convictions.",
+      "action": "Not sure if you qualify? Ask the Florida Division of Elections for a free advisory opinion before you register.",
+      "source": "Miami-Dade Elections",
+      "url": "https://www.votemiamidade.gov/elections/voters/restore-rights.page",
+      "always": true
+    },
+    {
+      "date": "2019-08-21",
+      "areas": [
+        "all"
+      ],
+      "kind": "transit",
+      "title": "You can pay for the train and bus by tapping a card or phone",
+      "detail": "Tap a contactless bank card, Apple Pay, or Google Pay at the Metrorail gates, and on the reader when you board a Metrobus. A ride is $2.25, and you never pay more than $5.65 in one day.",
+      "action": "Look for the wave symbol on your debit card. One card per person.",
+      "source": "Miami-Dade County",
+      "url": "https://www.miamidade.gov/global/transportation/contactless-payment-faqs.page",
+      "always": true
+    },
+    {
+      "date": "2021-09-30",
+      "areas": [
+        "all"
+      ],
+      "kind": "money",
+      "title": "Florida's minimum wage started going up $1 every year",
+      "detail": "It went from $8.65 to $10 an hour, then up $1 each September 30. Starting in 2027 it follows inflation.",
+      "action": "If a job pays less than the minimum wage, that's against Florida law.",
+      "source": "FOX 35 Orlando",
+      "url": "https://www.fox35orlando.com/news/floridas-minimum-wage-goes-up-2026-when-how-much"
+    },
+    {
+      "date": "2022-02-22",
+      "areas": [
+        "all"
+      ],
+      "kind": "phone",
+      "title": "Old 3G cell phones stopped working",
+      "detail": "Phone companies shut down 3G during 2022. Many older phones can't call, text, or even call 911 anymore.",
+      "action": "If your old phone won't connect, it probably needs replacing. The federal Lifeline program can help pay for phone service.",
+      "source": "Federal Communications Commission",
+      "url": "https://www.fcc.gov/consumers/guides/plan-ahead-phase-out-3g-cellular-networks-and-service"
+    },
+    {
+      "date": "2023-11-13",
+      "areas": [
+        "all"
+      ],
+      "kind": "transit",
+      "title": "Most bus routes changed",
+      "detail": "The county redesigned the whole bus system for the first time in 40 years. Many routes got new numbers or new paths, some were cut, and frequent routes went from 5 to 19. Weekend service is now close to weekday service.",
+      "action": "Don't trust an old route number. Check the 'My area' tab or the GO Miami-Dade Transit app.",
+      "source": "Miami-Dade County",
+      "url": "https://www.miamidade.gov/global/transportation/better-bus-project.page"
+    },
+    {
+      "date": "2023-11-13",
+      "areas": [
+        "all"
+      ],
+      "kind": "transit",
+      "title": "Free MetroConnect rides fill gaps where buses were cut",
+      "detail": "MetroConnect is a free shared ride you book on your phone. It covers the last stretch where a bus no longer goes.",
+      "action": "Download the MetroConnect app or call 311 to ask if your street is in a service zone.",
+      "source": "Miami-Dade County",
+      "url": "https://www.miamidade.gov/global/transportation/better-bus-project.page"
+    },
+    {
+      "date": "2023-11-13",
+      "areas": [
+        "overtown"
+      ],
+      "kind": "transit",
+      "title": "The Overtown Circulator bus is gone",
+      "detail": "Route 211 Overtown Circulator was discontinued. The number 211 now belongs to a different bus, the Flagler MAX.",
+      "action": "Use routes 2, 7, 9, or 77 instead, or book a free MetroConnect ride.",
+      "source": "Miami-Dade County route guide",
+      "url": "https://www.miamidade.gov/transit/library/bbn/better-bus-map-book.pdf"
+    },
+    {
+      "date": "2023-11-13",
+      "areas": [
+        "downtown"
+      ],
+      "kind": "transit",
+      "title": "Overnight buses have new numbers",
+      "detail": "The Night Owl is now route 401 (North Owl) and the Midnight Owl is now route 400 (South Owl). The paths are the same.",
+      "action": "Working a night shift? Look for 400 and 401 at Government Center.",
+      "source": "Miami-Dade County route guide",
+      "url": "https://www.miamidade.gov/transit/library/bbn/better-bus-map-book.pdf"
+    },
+    {
+      "date": "2023-11-13",
+      "areas": [
+        "little-havana"
+      ],
+      "kind": "transit",
+      "title": "Little Havana Connection buses stayed the same",
+      "detail": "Routes 207 and 208 kept the same path in the redesign. Route 8 on Calle Ocho was made longer, and the 8A branch was cut.",
+      "action": "Routes 207 and 208 still link Little Havana with Downtown and Brickell.",
+      "source": "Miami-Dade County route guide",
+      "url": "https://www.miamidade.gov/transit/library/bbn/better-bus-map-book.pdf"
+    },
+    {
+      "date": "2025-05-07",
+      "areas": [
+        "all"
+      ],
+      "kind": "id",
+      "title": "You need a REAL ID to fly inside the U.S.",
+      "detail": "A regular Florida license or ID without the star is no longer enough at airport security. A passport still works.",
+      "action": "Bring proof of identity, Social Security number, and two proofs of address to a driver license office to get a REAL ID.",
+      "source": "TSA",
+      "url": "https://www.tsa.gov/real-id"
+    },
+    {
+      "date": "2026-09-30",
+      "areas": [
+        "all"
+      ],
+      "kind": "money",
+      "title": "Florida's minimum wage reached $15 an hour",
+      "detail": "This was the last $1 step. Tipped workers get at least $11.98 an hour in cash wages.",
+      "action": "Check your pay stub. Anything under $15 an hour (for non-tipped work) is too low.",
+      "source": "WKMG News 6",
+      "url": "https://www.clickorlando.com/news/florida/2026/09/30/floridas-last-minimum-wage-hike-is-now-in-effect-heres-what-comes-next/"
+    }
+  ]
+}
