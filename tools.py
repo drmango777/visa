@@ -224,3 +224,126 @@ def changes_since(since_text, area_id, zip_code):
         "events": events,
         "gone": routes_gone(area_id) if area_id else [],
     }
+
+
+# ---------- can you make it home before curfew? ----------
+# An ESTIMATE from stop locations and each stop's first/last/number of trips.
+# It can't see transfers or which direction a bus is heading, and it says so.
+
+WALK_MPH, BUS_MPH, CIRCUITY, ACCESS_MILES = 3.0, 11.0, 1.3, 0.45
+
+
+def parse_time(value):
+    """'19:30' -> minutes after midnight."""
+    try:
+        h, m = str(value).strip().split(":")[:2]
+        h, m = int(h), int(m)
+    except Exception:
+        raise ValueError("Pick a time from the clock.")
+    if not (0 <= h < 24 and 0 <= m < 60):
+        raise ValueError("That time doesn't look right.")
+    return h * 60 + m
+
+
+def fmt_time(t):
+    t = int(round(t)) % 1440
+    h, m = divmod(t, 60)
+    return f"{h % 12 or 12}:{m:02d} {'AM' if h < 12 else 'PM'}"
+
+
+def _stops_within(lat, lon, miles):
+    out = []
+    for s in (STOPS or {}).get("stops", []):
+        d = miles_between(lat, lon, s["lat"], s["lon"])
+        if d <= miles:
+            out.append((d, s))
+    return sorted(out, key=lambda x: x[0])
+
+
+def curfew_check(lat1, lon1, lat2, lon2, end_min, curfew_min):
+    if curfew_min <= end_min:
+        raise ValueError("Your curfew is before the time you finish. Check the two times.")
+    straight = miles_between(lat1, lon1, lat2, lon2)
+    walk_min = straight * CIRCUITY / WALK_MPH * 60
+    walk_arrive = end_min + walk_min
+    walk_ok = straight <= 4 and walk_arrive <= curfew_min
+    if straight <= 4:
+        walk_line = (f"Walking the whole way is about {round(walk_min)} minutes. You'd get there around "
+                     f"{fmt_time(walk_arrive)}, {'before' if walk_ok else 'after'} your curfew.")
+    else:
+        walk_line = f"These two places are {straight:.1f} miles apart, which is too far to walk."
+    out = {"status": "no_data", "headline": "", "plan": [], "last_bus_line": "", "walk_line": walk_line,
+           "walk_ok": walk_ok, "miles_apart": round(straight, 1), "end": fmt_time(end_min), "curfew": fmt_time(curfew_min),
+           "advice": "If it's tight or late, talk to your officer or case manager about changing the time. Do it before that day, not after.",
+           "notes": ["This is an estimate, not a promise. Buses run late. Before you count on it, check the GO Miami-Dade Transit app or call 311.",
+                     "We can't see transfers or which way each bus is heading, so make sure you're on the right side of the street.",
+                     "Not legal advice. Your officer or case manager decides what counts as late."]}
+    if STOPS is None:
+        out["headline"] = "Bus data isn't loaded yet, so we can't check the bus."
+        return out
+    near_a, near_b = _stops_within(lat1, lon1, ACCESS_MILES), _stops_within(lat2, lon2, ACCESS_MILES)
+    if not near_a or not near_b:
+        out["headline"] = "We don't have bus stops close to one of these places. Check the GO Miami-Dade Transit app."
+        return out
+    a_by, b_by = {}, {}
+    for d, s in near_a:
+        for r in s["routes"]:
+            a_by.setdefault(r, (d, s))
+    for d, s in near_b:
+        for r in s["routes"]:
+            b_by.setdefault(r, (d, s))
+    best, missed = None, None
+    for r in a_by.keys() & b_by.keys():
+        da, sa = a_by[r]
+        db, sb = b_by[r]
+        ride_miles = miles_between(sa["lat"], sa["lon"], sb["lat"], sb["lon"])
+        if sa["id"] == sb["id"] or ride_miles < 0.15:
+            continue
+        svc = (sa.get("svc") or {}).get(r)
+        headway = max(5.0, min(40.0, (svc[1] - svc[0]) / (svc[2] - 1))) if svc and svc[2] > 1 else 20.0
+        reach = end_min + da * CIRCUITY / WALK_MPH * 60
+        leave = reach + headway / 2
+        last = svc[1] if svc else None
+        cand = {"route": r, "name": (ROUTES or {}).get("routes", {}).get(r, {}).get("name", ""),
+                "board": sa["name"], "off": sb["name"], "walk_a": da * CIRCUITY / WALK_MPH * 60, "wait": headway / 2,
+                "ride": ride_miles * CIRCUITY / BUS_MPH * 60 + 3, "walk_b": db * CIRCUITY / WALK_MPH * 60,
+                "headway": headway, "known": svc is not None, "last": last}
+        if last is not None and reach > last:
+            if missed is None or last > missed["last"]:
+                missed = cand
+            continue
+        if last is not None:
+            leave = min(leave, last)
+        cand["arrive"] = leave + cand["ride"] + cand["walk_b"]
+        if best is None or cand["arrive"] < best["arrive"]:
+            best = cand
+    if best is None and missed is not None:
+        out["status"] = "no_bus"
+        out["headline"] = (f"No. The last bus on route {missed['route']} near you leaves around {fmt_time(missed['last'])}. "
+                           f"You'd get to the stop after that.")
+        out["last_bus_line"] = f"Last bus on route {missed['route']} from {missed['board']}: about {fmt_time(missed['last'])}."
+        return out
+    if best is None:
+        out["status"] = "walk" if walk_ok else "no_direct"
+        out["headline"] = ("We couldn't find one bus between these two places, but you could walk it."
+                           if walk_ok else "We couldn't find one bus between these two places. You may need to transfer, and we can't check transfers yet.")
+        return out
+    margin = curfew_min - best["arrive"]
+    arrive = fmt_time(best["arrive"])
+    if margin >= 20:
+        out["status"], out["headline"] = "ok", f"Yes. You'd get home around {arrive}. That's {round(margin)} minutes before your curfew."
+    elif margin >= 0:
+        out["status"], out["headline"] = "tight", f"Maybe. You'd get home around {arrive}, only {round(margin)} minutes before your curfew. One late bus could break it."
+    else:
+        out["status"], out["headline"] = "late", f"No. You'd get home around {arrive}, {round(-margin)} minutes after your curfew."
+    nm = best["name"]
+    mins = lambda x: f"{max(1, round(x))} minute{'' if max(1, round(x)) == 1 else 's'}"
+    out["plan"] = [f"Walk about {mins(best['walk_a'])} to the stop at {best['board']}.",
+                   f"Take route {best['route']}{' (' + nm + ')' if nm else ''}." + (f" A bus comes about every {round(best['headway'])} minutes, so plan to wait about {round(best['wait'])}." if best["known"] else " We don't know how often it comes, so we guessed."),
+                   f"Ride about {mins(best['ride'])}. Get off near {best['off']}.",
+                   f"Walk about {mins(best['walk_b'])} to where you're staying."]
+    if best["last"] is not None:
+        out["last_bus_line"] = f"The last bus on route {best['route']} from that stop leaves around {fmt_time(best['last'])}."
+    else:
+        out["last_bus_line"] = "We don't have the last-bus time for this route. Check the app."
+    return out
