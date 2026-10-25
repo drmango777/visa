@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 CACHE = DATA / "cache"
-USER_AGENT = "ReentryCompass/2.0 (Impact Miami hackathon project)"
+USER_AGENT = "Sail-by/2.0 (Impact Miami hackathon project)"
 
 # Load .env so optional API keys work without exporting them by hand.
 _env = ROOT / ".env"
@@ -40,7 +40,7 @@ def miles_between(lat1, lon1, lat2, lon2):
 def http(url, params=None, data=None, headers=None, timeout=60, tries=3):
     """GET (or POST if data is given). Returns bytes. Retries on network errors."""
     if params:
-        url += ("&" if "?" in url else "?") + urllib.parse.urlencode(params, safe=":,*", quote_via=urllib.parse.quote)
+        url += ("&" if "?" in url else "?") + urllib.parse.urlencode(params, safe=":,*")
     h = {"User-Agent": USER_AGENT}
     h.update(headers or {})
     body = data.encode() if isinstance(data, str) else data

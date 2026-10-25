@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reentry Compass</title>
+<title>Sail-by</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -85,6 +85,10 @@ td.num { white-space: nowrap; }
 .route .name { font-weight: 700; }
 .route .meta { color: var(--muted); font-size: .92rem; }
 .change { margin-top: .3rem; background: var(--soft); border-radius: 8px; padding: .35rem .6rem; font-size: .95rem; }
+.grp { border: 1px solid var(--line); border-radius: 12px; margin: .7rem 0; padding: 0 1rem; }
+.grp > summary, .more > summary { min-height: 52px; display: flex; align-items: center; gap: .6rem; cursor: pointer; font-weight: 700; }
+.more > summary { color: var(--accent-dark); min-height: 48px; }
+.count { background: var(--soft); border-radius: 999px; padding: 0 .65rem; font-size: .9rem; }
 .gone { background: var(--up-bg); border-radius: 10px; padding: .8rem 1rem; margin-top: .8rem; }
 .gone li { margin: .3rem 0; }
 
@@ -112,10 +116,10 @@ footer { color: var(--muted); font-size: .88rem; padding-bottom: 3rem; }
 <body>
 <header>
   <div class="wrap bar">
-    <div class="brand">Reentry Compass</div>
+    <div class="brand">Sail-by</div>
     <div class="tabs" role="tablist" aria-label="Pages">
       <button class="tab" role="tab" id="t-area" aria-selected="true" aria-controls="p-area">My area</button>
-      <button class="tab" role="tab" id="t-since" aria-selected="false" aria-controls="p-since">Since I went in</button>
+      <button class="tab" role="tab" id="t-since" aria-selected="false" aria-controls="p-since">Date convicted</button>
     </div>
   </div>
 </header>
@@ -154,11 +158,11 @@ footer { color: var(--muted); font-size: .88rem; padding-bottom: 3rem; }
 
   <!-- TAB 2 -->
   <section id="p-since" role="tabpanel" aria-labelledby="t-since" hidden>
-    <h1>What changed while you were away?</h1>
-    <p class="lead">Enter the day you went in. An estimate is fine.</p>
+    <h1>What changed since you were convicted?</h1>
+    <p class="lead">Enter the date you were convicted. An estimate is fine.</p>
 
     <form id="since-form" novalidate>
-      <label for="date">Date you went in</label>
+      <label for="date">Date convicted</label>
       <div class="row"><div class="grow"><input type="date" id="date" min="1990-01-01"></div></div>
       <div class="label" id="s-label">Where will you be staying?</div>
       <div class="seg" id="since-area" role="group" aria-labelledby="s-label"></div>
@@ -281,7 +285,10 @@ const Maps = {
       this.g = L.map("map-leaflet");
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(this.g);
     }
+    this.g.invalidateSize();
+    this.g.setView([lat, lon], 14);   // the map needs a view before anything is drawn on it
     this.clear();
+    const bounds = L.latLng(lat, lon).toBounds(meters * 2);
     const circle = L.circle([lat, lon], { radius: meters, color: "#0b6e99", weight: 3, fillOpacity: 0.08 }).addTo(this.g);
     this.items.push(circle, L.marker([lat, lon]).addTo(this.g).bindTooltip("Your address"));
     for (const r of routes) for (const shape of r.shapes) {
@@ -289,8 +296,7 @@ const Maps = {
       this.items.push(pl); (this.lines[r.route] ||= []).push(pl);
     }
     for (const s of stops) this.items.push(L.circleMarker([s.lat, s.lon], { radius: 4, color: "#13293d", weight: 1, fillColor: "#fff", fillOpacity: 1 }).addTo(this.g).bindTooltip(s.name));
-    this.g.fitBounds(circle.getBounds(), { padding: [20, 20] });
-    setTimeout(() => this.g.invalidateSize(), 50);
+    this.g.fitBounds(bounds, { padding: [20, 20] });
   },
   focus(route) {
     for (const [name, lines] of Object.entries(this.lines)) for (const pl of lines) {
@@ -350,17 +356,39 @@ function goneBlock(list) {
   if (!list || !list.length) return "";
   return `<div class="gone"><strong>Buses that no longer run here</strong><ul>` + list.map((g) => `<li><strong>${esc(g.route)}.</strong> ${esc(g.instead)}</li>`).join("") + `</ul></div>`;
 }
+const GROUPS = [
+  ["local", "Local buses", "Run all day, most days.", true],
+  ["rail", "Metrorail and Metromover", "Trains and the free downtown loop.", false],
+  ["express", "Express and rush-hour buses", "Fewer trips, mostly weekday mornings and afternoons.", false],
+  ["night", "Overnight buses", "Run when the others don't.", false],
+];
+function busGroup(r) {
+  if (r.type !== 3) return "rail";
+  if (/owl/i.test(r.name)) return "night";
+  if (/max|express|park & ride/i.test(r.name)) return "express";
+  return "local";
+}
+function routeRow(r) {
+  return `<div class="route">
+    <button class="chip" type="button" data-route="${esc(r.route)}" aria-pressed="false" style="background:${esc(r.color)}" aria-label="Show route ${esc(r.route)} on the map">${esc(r.route)}</button>
+    <div class="what"><div class="name">${esc(r.name || "Route " + r.route)}</div>
+      <div class="meta">Closest stop is ${r.closest_miles} mi away</div>
+      ${r.change ? `<div class="change"><strong>Changed:</strong> ${esc(r.change)}</div>` : ""}</div></div>`;
+}
 function busCard(b, gone, miles) {
   if (!b || !b.available) return `<h2>Buses nearby</h2>` + missing("Bus data");
   let html = `<h2>Buses and trains within ${MILES[miles].toLowerCase()}</h2>`;
   if (!b.routes.length) html += `<p>No bus or train stops are this close. Try a bigger circle.</p>`;
-  else html += `<p>Tap a route number to see it on the map.</p>` + b.routes.map((r) => `
-    <div class="route">
-      <button class="chip" type="button" data-route="${esc(r.route)}" aria-pressed="false" style="background:${esc(r.color)}" aria-label="Show route ${esc(r.route)} on the map">${esc(r.route)}</button>
-      <div class="what"><div class="name">${esc(r.name || "Route " + r.route)}</div>
-        <div class="meta">${r.stops} stop${r.stops === 1 ? "" : "s"} nearby. Closest is ${r.closest_miles} mi away.${r.trips_weekday ? " About " + r.trips_weekday.toLocaleString() + " trips on a weekday." : ""}</div>
-        ${r.change ? `<div class="change"><strong>What changed:</strong> ${esc(r.change)}</div>` : ""}</div>
-    </div>`).join("");
+  else {
+    const by = {};
+    for (const r of b.routes) (by[busGroup(r)] ||= []).push(r);
+    html += `<p>Tap a route number to see it on the map.</p>` + GROUPS.filter((g) => by[g[0]]).map(([id, title, hint, open]) => {
+      const list = by[id], first = list.slice(0, 6), more = list.slice(6);
+      return `<details class="grp"${open ? " open" : ""}><summary>${title} <span class="count">${list.length}</span></summary>
+        <p class="hint">${hint}</p>${first.map(routeRow).join("")}
+        ${more.length ? `<details class="more"><summary>Show ${more.length} more</summary>${more.map(routeRow).join("")}</details>` : ""}</details>`;
+    }).join("");
+  }
   html += goneBlock(gone);
   html += `<p class="src">Routes and stops: <a href="${esc(b.source_url)}" target="_blank" rel="noopener">Miami-Dade Transit</a>.
     Route changes are from the county's <a href="${esc(b.changes_url)}" target="_blank" rel="noopener">route-by-route guide</a> (the big bus redesign of Nov. 13, 2023).
@@ -401,7 +429,8 @@ async function loadArea(place) {
     $("#c-buses").innerHTML = busCard(d.buses, d.gone, state.radius);
     await Maps.init(state.cfg.maps_key);
     const routes = d.buses.available ? d.buses.routes : [];
-    Maps.show(place.lat, place.lon, state.radius, d.buses.available ? d.buses.stops : [], routes);
+    try { Maps.show(place.lat, place.lon, state.radius, d.buses.available ? d.buses.stops : [], routes); }
+    catch (err) { console.error(err); }
     document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => {
       const on = c.getAttribute("aria-pressed") !== "true";
       document.querySelectorAll(".chip").forEach((o) => o.setAttribute("aria-pressed", "false"));
@@ -448,12 +477,12 @@ $("#since-form").addEventListener("submit", async (ev) => {
 });
 function renderSince(f, zip) {
   $("#since-out").hidden = false;
-  $("#since-where").innerHTML = `You've been away about <strong>${f.years_away} years</strong>, since <strong>${fmtDate(f.since)}</strong>. Here's what changed${f.area ? " in and around <strong>" + esc(f.area.name) + "</strong>" : ""}.`;
+  $("#since-where").innerHTML = `It's been about <strong>${f.years_away} years</strong> since <strong>${fmtDate(f.since)}</strong>. Here's what changed${f.area ? " in and around <strong>" + esc(f.area.name) + "</strong>" : ""}.`;
 
   const w = f.min_wage;
   let money_html = `<h2>Money</h2>`;
   if (w.now) money_html += `<p class="big">The minimum wage is now <span class="good">${money2(w.now)} an hour</span>.</p>` +
-    `<p>${w.then ? `On ${fmtDate(f.since)} it was ${money2(w.then)}.` : `When you went in it was lower than $8.46.`} ${w.then ? `That's ${money2(w.now - w.then)} more per hour.` : ""}</p>` + sourceLine("FOX 35 Orlando, on Florida's Amendment 2", w.source_url);
+    `<p>${w.then ? `On ${fmtDate(f.since)} it was ${money2(w.then)}.` : `On that date it was lower than $8.46.`} ${w.then ? `That's ${money2(w.now - w.then)} more per hour.` : ""}</p>` + sourceLine("FOX 35 Orlando, on Florida's Amendment 2", w.source_url);
   $("#s-money").innerHTML = money_html +
     `<div style="margin-top:1.4rem">${rentCard(f.rent, "Rent in ZIP code " + esc(zip))}</div>` +
     `<div style="margin-top:1.4rem">${pricesCard(f.prices, "Since then,")}</div>`;

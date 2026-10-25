@@ -1,4 +1,4 @@
-"""Reentry Compass web server.
+"""Sail-by web server.
 
 Run locally:   python -m uvicorn main:app --reload
 Then open:     http://localhost:8000
@@ -22,7 +22,7 @@ import agent  # noqa: E402  (import after load_dotenv so keys are set)
 import tools  # noqa: E402
 
 STATIC = Path(__file__).parent / "static"
-app = FastAPI(title="Reentry Compass")
+app = FastAPI(title="Sail-by")
 
 RADII = (0.5, 1.0, 2.0)
 

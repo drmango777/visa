@@ -1,4 +1,4 @@
-"""Tools for Reentry Compass. Plain Python, no AI, so every number is checkable.
+"""Tools for Sail-by. Plain Python, no AI, so every number is checkable.
 
 The agent (agent.py) can call these, and the website calls them directly.
 Data lives in /data. Run `python scripts/update_all_data.py` to refresh it.

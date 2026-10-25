@@ -1,4 +1,4 @@
-"""The Reentry Compass agent (optional "Explain it simply" button).
+"""The Sail-by agent (optional "Explain it simply" button).
 
 With OPENAI_API_KEY set, an OpenAI model calls the tools below, reads the
 real results, and explains them in plain words in the chosen language.
@@ -67,7 +67,7 @@ def _ask(context):
     if context["kind"] == "area":
         return (f"Explain what is around this place. Call get_area_facts with lat={context['lat']}, "
                 f"lon={context['lon']}, zip='{context.get('zip', '')}', radius_miles={context['radius_miles']}.")
-    return (f"This person went in on {context['since']}. Explain what changed since then. Call "
+    return (f"This person was convicted on {context['since']}. Explain what changed since then. Call "
             f"get_changes_since with since='{context['since']}', area_id='{context.get('area_id') or ''}', "
             f"zip='{context.get('zip', '')}'.")
 
@@ -117,7 +117,7 @@ def _backup(context):
         parts.append("Check the GO Miami-Dade Transit app or call 311 before you count on a bus.")
         return " ".join(parts)
     f = tools.changes_since(context["since"], context.get("area_id"), context.get("zip", ""))
-    parts = [f"You have been away about {f['years_away']} years."]
+    parts = [f"It has been about {f['years_away']} years since you were convicted."]
     w = f["min_wage"]
     if w["now"]:
         parts.append(f"Florida's minimum wage is now {_money(w['now'])} an hour" +
