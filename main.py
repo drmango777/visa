@@ -11,11 +11,12 @@ from datetime import date
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 load_dotenv()  # reads keys from .env if it exists
 
@@ -137,19 +138,76 @@ def health():
             "data": tools.data_status()}
 
 
+# ---------- pages, and the files search engines and link previews look for ----------
+
+PAGES = ("/", "/privacy", "/terms")
+
+
+def site_url(request: Request):
+    """The site's public address, for links that must be absolute (share image, sitemap).
+    Set SITE_URL (for example https://sail-by.onrender.com) if the host reports the wrong one."""
+    env = os.getenv("SITE_URL", "").rstrip("/")
+    if env:
+        return env
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    return f"{proto}://{request.headers.get('host', request.url.netloc)}"
+
+
+def page(name: str, request: Request, status: int = 200):
+    """Serve an HTML page, filling in the site's address where it says %SITE_URL%."""
+    html = (STATIC / name).read_text(encoding="utf-8").replace("%SITE_URL%", site_url(request))
+    return HTMLResponse(html, status_code=status)
+
+
 @app.get("/")
-def home():
-    return FileResponse(STATIC / "index.html")
+def home(request: Request):
+    return page("index.html", request)
 
 
 @app.get("/privacy")
-def privacy_page():
-    return FileResponse(STATIC / "privacy.html")
+def privacy_page(request: Request):
+    return page("privacy.html", request)
 
 
 @app.get("/terms")
-def terms_page():
-    return FileResponse(STATIC / "terms.html")
+def terms_page(request: Request):
+    return page("terms.html", request)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return FileResponse(STATIC / "favicon.png", media_type="image/png")
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+def apple_icon():
+    return FileResponse(STATIC / "apple-touch-icon.png", media_type="image/png")
+
+
+@app.get("/llms.txt", include_in_schema=False)
+def llms_txt():
+    return FileResponse(STATIC / "llms.txt", media_type="text/plain; charset=utf-8")
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots(request: Request):
+    return PlainTextResponse(f"User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: {site_url(request)}/sitemap.xml\n")
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap(request: Request):
+    base, today = site_url(request), date.today().isoformat()
+    urls = "".join(f"  <url><loc>{base}{p}</loc><lastmod>{today}</lastmod></url>\n" for p in PAGES)
+    return Response(f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{urls}</urlset>\n',
+                    media_type="application/xml")
+
+
+@app.exception_handler(StarletteHTTPException)
+async def not_found(request: Request, exc: StarletteHTTPException):
+    """A real page for people who land on a wrong address. The API keeps answering in JSON."""
+    if exc.status_code == 404 and not request.url.path.startswith("/api/"):
+        return page("404.html", request, 404)
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=getattr(exc, "headers", None))
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

@@ -3,7 +3,55 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sail-by</title>
+<title>Sail-by | Back in Miami? Start here.</title>
+<meta name="description" content="Back in Miami after prison? Find help and buses near you, see what changed since you went in, and check your trip home by curfew. Free, in 3 languages.">
+<link rel="canonical" href="%SITE_URL%/">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="48x48" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#F7F5F0">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Sail-by">
+<meta property="og:title" content="Sail-by | Back in Miami? Start here.">
+<meta property="og:description" content="Help nearby, what changed while you were away, and getting home by curfew. Free, in English, Spanish, and Haitian Creole.">
+<meta property="og:url" content="%SITE_URL%/">
+<meta property="og:image" content="%SITE_URL%/static/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Sail-by: Back in Miami? Start here. Over a map of downtown Miami.">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="es_US">
+<meta property="og:locale:alternate" content="ht_HT">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "%SITE_URL%/#website",
+      "name": "Sail-by",
+      "url": "%SITE_URL%/",
+      "description": "A free guide for people coming home from prison in Miami-Dade County: help nearby, what changed, and getting home by curfew.",
+      "inLanguage": ["en", "es", "ht"]
+    },
+    {
+      "@type": "WebApplication",
+      "name": "Sail-by",
+      "url": "%SITE_URL%/",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Any",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "inLanguage": ["en", "es", "ht"],
+      "areaServed": { "@type": "City", "name": "Miami", "containedInPlace": { "@type": "State", "name": "Florida" } },
+      "audience": { "@type": "Audience", "audienceType": "People returning home after incarceration" },
+      "featureList": ["Places nearby: hospitals, clinics, libraries, food help, consulates", "Bus routes and recent route changes",
+                      "Rent, prices, and minimum wage since a date", "Curfew trip estimate by bus or walking"]
+    }
+  ]
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,700..900&family=Public+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -15,7 +63,7 @@
 * { box-sizing: border-box; }
 html { font-size: 18px; }
 body { margin: 0; color: var(--ink); background: var(--bg); line-height: 1.5; font-family: "Public Sans", "Segoe UI", Arial, sans-serif; }
-h1 { font-size: 2.2rem; line-height: 1.1; letter-spacing: -.01em; margin: 0 0 .5rem; font-weight: 800; }
+h1, .page-title { font-size: 2.2rem; line-height: 1.1; letter-spacing: -.01em; margin: 0 0 .5rem; font-weight: 800; }
 h2 { font-size: 1.3rem; line-height: 1.25; margin: 0 0 .5rem; font-weight: 700; }
 h3 { font-size: 1.05rem; margin: 1.2rem 0 .3rem; }
 p { margin: 0 0 .7rem; }
@@ -25,7 +73,7 @@ a:hover { color: var(--blue-d); }
 .hint { color: var(--muted); font-size: .9rem; }
 .lead { color: var(--muted); max-width: 60ch; font-size: 1.05rem; }
 [hidden] { display: none !important; }
-@media (max-width: 600px) { h1 { font-size: 1.8rem; } }
+@media (max-width: 600px) { h1, .page-title { font-size: 1.8rem; } }
 
 /* top bar: tabs sit in the header on wide screens, and in a bar at the bottom on smaller ones */
 .top { position: sticky; top: 0; z-index: 1100; border-bottom: 1px solid var(--line); background: var(--surface); }
@@ -268,7 +316,7 @@ details.more > summary { color: var(--link); min-height: 46px; font-weight: 600;
 <!-- ASK A QUESTION -->
 <section id="p-ask" role="tabpanel" aria-labelledby="t-ask" hidden>
   <div class="askwrap">
-    <h1 data-i18n="ask_h1"></h1>
+    <h2 class="page-title" data-i18n="ask_h1"></h2>
     <p class="lead" data-i18n="ask_lead"></p>
     <label for="ask" data-i18n="ask_label"></label>
     <textarea id="ask" rows="3" maxlength="500" data-i18n-ph="ask_ph"></textarea>
@@ -294,7 +342,7 @@ details.more > summary { color: var(--link); min-height: 46px; font-weight: 600;
 <!-- WHAT'S CLOSE BY -->
 <section id="p-area" role="tabpanel" aria-labelledby="t-area" hidden>
   <div class="pagehead"><div class="pagehead-in">
-    <h1 data-i18n="tab_area"></h1>
+    <h2 class="page-title" data-i18n="tab_area"></h2>
     <p class="lead" data-i18n="area_lead"></p>
   </div></div>
   <div class="areagrid">
@@ -330,7 +378,7 @@ details.more > summary { color: var(--link); min-height: 46px; font-weight: 600;
 <!-- WHAT'S CHANGED IN MY AREA -->
 <section id="p-since" role="tabpanel" aria-labelledby="t-since" hidden>
   <div class="pagehead"><div class="pagehead-in">
-    <h1 data-i18n="tab_since"></h1>
+    <h2 class="page-title" data-i18n="tab_since"></h2>
     <p class="lead" data-i18n="since_lead"></p>
   </div></div>
   <div class="twocol">
@@ -354,7 +402,7 @@ details.more > summary { color: var(--link); min-height: 46px; font-weight: 600;
 <!-- HOME BY CURFEW -->
 <section id="p-curfew" role="tabpanel" aria-labelledby="t-curfew" hidden>
   <div class="pagehead"><div class="pagehead-in">
-    <h1 data-i18n="curfew_h1"></h1>
+    <h2 class="page-title" data-i18n="curfew_h1"></h2>
     <p class="lead" data-i18n="curfew_lead"></p>
   </div></div>
   <div class="twocol">
@@ -668,6 +716,7 @@ function setLang(l) {
   try { localStorage.setItem("sailby-lang", l); } catch (e) { /* not saved, still works */ }
   applyStatic();
   Hero.restart();
+  setTitle();
   if (state.cfg) buildSegments();
   if (state.lastArea) renderArea(state.lastArea, false);
   if (state.sinceLast) renderSince(state.sinceLast.f, state.sinceLast.zip);
@@ -698,9 +747,17 @@ const Hero = {
 
 /* ---------- tabs (each page gets its own address, so the Back button works) ---------- */
 function tabFromHash() { const h = location.hash.slice(1); return TABS.includes(h) ? h : "home"; }
+// Each page gets its own browser-tab title, in the chosen language. The page shown also gets its
+// heading announced as the main (level 1) heading; the landing page's <h1> is the only real one in the HTML.
+function setTitle() {
+  const tab = state.tab;
+  document.title = tab === "home" ? `Sail-by | ${HERO[LANG].join(" ")}` : `${t(tab === "curfew" ? "curfew_h1" : "tab_" + tab)} | Sail-by`;
+  document.querySelectorAll(".page-title").forEach((h) => h.setAttribute("aria-level", h.closest("section").id === "p-" + tab ? "1" : "2"));
+}
 function openTab(which, remember = true) {
   state.tab = which;
   for (const tb of TABS) { $("#p-" + tb).hidden = tb !== which; const b = $("#t-" + tb); if (b) b.setAttribute("aria-selected", String(tb === which)); }
+  setTitle();
   if (which === "area") Maps.refresh();
   if (which === "curfew" && !$("#c-home").value && state.place) $("#c-home").value = state.place.matched;
   if (which === "home") drawMap();
@@ -742,7 +799,9 @@ async function drawMap() {
   // Show downtown Miami (with Little Havana, Overtown, and the coast), not the whole bay.
   // On wide screens downtown sits to the right of the headline; on narrow ones it's in the middle.
   const frame = () => {
-    const box = svg.getBoundingClientRect(), aspect = box.width / Math.max(1, box.height);
+    const box = svg.getBoundingClientRect();
+    if (!box.width || !box.height) return;     // landing page is hidden right now; frame it when it shows
+    const aspect = box.width / box.height;
     let cx, lonSpan, latSpan;
     if (aspect > 1.3) { cx = -80.21; lonSpan = 0.096; latSpan = lonSpan * k / aspect; }
     else { cx = -80.199; latSpan = 0.05; lonSpan = Math.min(0.096, latSpan * aspect / k); latSpan = lonSpan * k / aspect; }
@@ -839,7 +898,7 @@ const Maps = {
     this.clear();
     const circle = L.circle([lat, lon], { radius: meters, color: INK, weight: 2, opacity: 0.8, dashArray: "6 6", fillOpacity: 0.04, interactive: false }).addTo(this.g);
     this.ring = circle;
-    this.items.push(circle, L.marker([lat, lon], { zIndexOffset: 1000 }).addTo(this.g).bindTooltip(t("the_address")));
+    this.items.push(circle, L.marker([lat, lon], { zIndexOffset: 1000, alt: t("the_address") }).addTo(this.g).bindTooltip(t("the_address")));
     for (const r of routes) for (const shape of r.shapes) {
       for (const [color, weight] of [["#ffffff", 10], [BLUE, 5]]) {
         const pl = L.polyline(shape, { color, weight, opacity: 0, interactive: false }).addTo(this.g);

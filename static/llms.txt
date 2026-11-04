@@ -1,0 +1,23 @@
+# Sail-by
+
+> A free website for people coming home from prison in Miami-Dade County, Florida. It shows what is close by (hospitals, clinics, libraries, food help, government offices, consulates, bus routes), what changed while someone was away (rent, prices, minimum wage, new rules), and whether they can get home by bus before curfew. Available in English, Spanish, and Haitian Creole. No sign-up, and it does not save what people type.
+
+Sail-by covers three Miami neighborhoods for now: Little Havana, Downtown, and Overtown. It is not legal advice.
+
+## Pages
+
+- [Home](/): Start page with the four tools.
+- [Ask a question](/#ask): Type a question in plain words, such as "Where is the nearest library to 1200 SW 8th St?". An AI helper looks up the answer with the same data the other pages use.
+- [What's close by?](/#area): A map of hospitals, clinics, pharmacies, libraries, food help and shelters, government offices, courthouses, police, post offices, consulates, and bus routes near an address, with the bus that gets to each place.
+- [What's changed in my area?](/#since): Rent, prices, minimum wage, and new rules since a person's conviction date, as a timeline or a table.
+- [Home by curfew](/#curfew): An estimate of whether someone can get from work or a check-in to where they sleep, by bus or walking, before curfew.
+- [Privacy](/privacy): What the site does and does not keep.
+- [Terms](/terms): Limits of the information.
+
+## Where the data comes from
+
+- Rent by ZIP code: U.S. Census Bureau, American Community Survey (median gross rent).
+- Prices: U.S. Bureau of Labor Statistics (Miami-area consumer prices and U.S. average item prices).
+- Bus stops, routes, and schedules: Miami-Dade Transit GTFS feed. Route changes: the county's Better Bus route guide (November 2023).
+- Places: OpenStreetMap contributors.
+- Minimum wage and new rules: official sources, each linked on the page.
