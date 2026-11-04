@@ -179,7 +179,12 @@ def route_lines(step=4, limit=55):
     bbox = tuple(COAST["bbox"]) if COAST else (25.73, -80.26, 25.83, -80.11)
     out = {"bbox": bbox, "lines": [], "land": [], "river": [], "causeways": []}
     if COAST:
-        out["land"] = [_thin(p, 2) for p in COAST["land"]]
+        s, w, n, e = bbox
+
+        def keep(i, p, last):   # every other point, but never the ones on the box edge (the land shape's corners)
+            return i % 2 == 0 or i == last or min(abs(p[0] - s), abs(p[0] - n), abs(p[1] - w), abs(p[1] - e)) < 1e-6
+
+        out["land"] = [[p for i, p in enumerate(poly) if keep(i, p, len(poly) - 1)] for poly in COAST["land"]]
         out["river"] = COAST["river"]
         out["causeways"] = [_thin(c, 2) for c in COAST["causeways"] if len(c) > 2]
     if ROUTES is None:

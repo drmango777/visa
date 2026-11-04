@@ -42,14 +42,17 @@ a:hover { color: var(--blue-d); }
 .langs button + button { border-left: 1px solid var(--ink); }
 .langs button:hover { background: var(--bg); }
 .langs button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+/* smaller screens: logo and languages on the first row, the four tabs on a second row under them */
 @media (max-width: 1080px) {
+  :root { --head: 108px; }
   .tab .short { display: inline; } .tab .long { display: none; }
-  .tabs { position: fixed; left: 0; right: 0; bottom: 0; height: auto; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
-  .tab { min-height: 62px; padding: 6px 4px; font-size: .8rem; line-height: 1.15; border-bottom: 0; }
-  .tab[aria-selected="true"] { border-top-color: var(--blue); }
-  body { padding-bottom: calc(62px + env(safe-area-inset-bottom)); }
+  .bar { flex-wrap: wrap; height: auto; padding: 0 16px; gap: 0 12px; }
+  .brand, .langs { height: 56px; }
+  .langs { height: 36px; }
+  .tabs { order: 3; width: calc(100% + 32px); margin: 0 -16px; height: 52px; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); }
+  .tab { height: 52px; padding: 4px; font-size: .82rem; line-height: 1.15; border-top: 0; }
 }
-@media (max-width: 420px) { .bar { padding: 0 12px; gap: 8px; } .brand { font-size: 1.15rem; gap: 6px; } .brand svg { width: 22px; } .langs button { padding: 0 7px; font-size: .74rem; } }
+@media (max-width: 420px) { .bar { padding: 0 12px; gap: 0 8px; } .tabs { width: calc(100% + 24px); margin: 0 -12px; } .brand { font-size: 1.15rem; gap: 6px; } .brand svg { width: 22px; } .langs button { padding: 0 7px; font-size: .74rem; } .tab { font-size: .76rem; } }
 
 /* forms */
 label, .label { display: block; font-weight: 700; margin: 1.1rem 0 .3rem; }
@@ -75,37 +78,42 @@ button.plain:hover { background: var(--surface); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* landing page */
-.hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--ink); min-height: min(64vh, 580px); display: flex; align-items: flex-end; background: var(--water); }
+/* the landing page fills one screen: the map on top, the four options along the bottom */
+#p-home:not([hidden]) { display: flex; flex-direction: column; min-height: calc(100svh - var(--head) - 1px); }
+.hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--ink); flex: 1; min-height: 200px; display: flex; align-items: flex-end; background: var(--water); }
 .hero svg.map { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.map .land { fill: var(--bg); stroke: #b9c9da; stroke-width: 1; vector-effect: non-scaling-stroke; }
+/* the map is kept light so the dark words on top always read clearly */
+.map .land { fill: var(--bg); stroke: #c9d6e4; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .map .river { fill: none; stroke: var(--water); stroke-width: 3.5; vector-effect: non-scaling-stroke; }
-.map .road { fill: none; stroke: var(--ink); stroke-opacity: .35; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
-.map .bus { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-opacity: .2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke;
-  stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: draw 5s ease-out forwards; animation-delay: var(--delay); }
-.map circle { fill: var(--blue); }
-.map .label { font-family: var(--display); font-stretch: 80%; font-weight: 800; font-size: 13px; letter-spacing: .14em; fill: #6d8aa8; text-transform: uppercase; }
-@keyframes draw { to { stroke-dashoffset: 0; } }
-@media (prefers-reduced-motion: reduce) { .map .bus { animation: none; stroke-dashoffset: 0; } .map circle { display: none; } }
-.hero-in { position: relative; width: 100%; max-width: 1200px; margin: 0 auto; padding: 72px 28px 56px; }
-.hero h1 { font-family: var(--display); font-stretch: 72%; font-weight: 900; font-size: clamp(3rem, 8.5vw, 7rem); line-height: .9; letter-spacing: -.01em; text-transform: uppercase; margin: 0 0 1.2rem; max-width: 12ch; }
+.map .road { fill: none; stroke: var(--ink); stroke-opacity: .2; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.map .bus { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-opacity: .13; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke;
+  stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: draw 20s ease-in-out infinite; animation-delay: var(--delay); }
+/* each route draws itself in, stays a moment, then wipes away the same direction, and starts again */
+@keyframes draw { 0% { stroke-dashoffset: var(--len); } 45%, 65% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: calc(var(--len) * -1); } }
+@media (prefers-reduced-motion: reduce) { .map .bus { animation: none; stroke-dashoffset: 0; } }
+.hero-in { position: relative; width: 100%; max-width: 1200px; margin: 0 auto; padding: 40px 28px 30px; }
+.hero h1 { font-family: var(--display); font-stretch: 72%; font-weight: 900; font-size: clamp(3rem, min(9vw, 14vh), 8.5rem); line-height: .92; letter-spacing: -.01em; text-transform: uppercase; margin: 0 0 .9rem; }
 .hero h1 .accent { color: var(--blue); }
 .rot { display: grid; }
-.rot > span { grid-area: 1 / 1; opacity: 0; transition: opacity .5s ease; }
-.rot > span.on { opacity: 1; }
-.hero h1 .bgtext, .hero .lead span { background: var(--bg); padding: 0 .08em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
-.hero .lead { font-size: clamp(1.05rem, 2vw, 1.3rem); color: var(--ink); max-width: 34ch; margin: 0; }
-.hero .lead span { padding: 2px 6px; margin-left: -6px; line-height: 1.7; }
-.options { max-width: 1200px; margin: 0 auto; padding: 40px 28px 72px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.options button { display: flex; flex-direction: column; justify-content: space-between; gap: 18px; min-height: 190px; text-align: left; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--ink); border-radius: var(--r); padding: 24px 26px; cursor: pointer; }
+.rot > span { grid-area: 1 / 1; opacity: 0; transition: opacity .3s ease; }
+.rot > span.on { opacity: 1; transition-delay: .3s; }   /* the old line fades out first, then the new one fades in */
+.hero .lead { font-size: clamp(1rem, 1.6vw, 1.2rem); font-weight: 600; color: var(--ink); max-width: 40ch; margin: 0; }
+.options { width: 100%; max-width: 1200px; margin: 0 auto; padding: 18px 28px 22px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.options button { display: flex; flex-direction: column; gap: 10px; text-align: left; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--ink); border-radius: var(--r); padding: 16px 18px; cursor: pointer; }
 .options button:hover { background: var(--blue); border-color: var(--blue); color: #fff; }
 .options button:hover .num, .options button:hover span { color: #dbe6fb; }
-.options .num { font-family: var(--display); font-stretch: 72%; font-weight: 800; font-size: 1rem; color: var(--blue); }
-.options b { display: block; font-family: var(--display); font-stretch: 75%; font-weight: 800; font-size: clamp(1.8rem, 3.4vw, 2.6rem); line-height: 1; text-transform: uppercase; }
-.options span { display: block; color: var(--muted); font-size: 1rem; margin-top: 8px; }
-@media (max-width: 700px) {
-  .hero { min-height: 0; } .hero-in { padding: 56px 20px 36px; }
-  .options { grid-template-columns: 1fr; padding: 24px 20px 48px; gap: 10px; }
-  .options button { min-height: 0; padding: 18px 20px; }
+.options .num { font-family: var(--display); font-stretch: 72%; font-weight: 800; font-size: .9rem; color: var(--blue); }
+.options b { display: block; font-family: var(--display); font-stretch: 75%; font-weight: 800; font-size: clamp(1.25rem, 2vw, 1.7rem); line-height: 1.02; text-transform: uppercase; }
+.options span { display: block; color: var(--muted); font-size: .88rem; line-height: 1.35; margin-top: 6px; }
+@media (max-width: 900px) { .options { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) {
+  .hero { min-height: 200px; } .hero-in { padding: 24px 16px 18px; }
+  .hero h1 { font-size: clamp(2.6rem, 14vw, 3.8rem); }
+  .options { padding: 12px 12px 14px; gap: 8px; }
+  .options button { padding: 12px 12px; gap: 4px; }
+  .options b { font-size: 1.12rem; }
+  .options span { font-size: .8rem; }
+  .options .num { display: none; }
 }
 
 /* page heading row */
@@ -246,7 +254,7 @@ details.more > summary { color: var(--link); min-height: 46px; font-weight: 600;
     <svg class="map" id="map-bg" aria-hidden="true" preserveAspectRatio="xMidYMid slice"></svg>
     <div class="hero-in">
       <h1><span class="sr" id="hero-sr"></span><span class="rot" id="hero-rot" aria-hidden="true"></span></h1>
-      <p class="lead"><span data-i18n="hero_lead"></span></p>
+      <p class="lead" data-i18n="hero_lead"></p>
     </div>
   </div>
   <div class="options">
@@ -674,7 +682,7 @@ const Hero = {
   build() {
     const order = [LANG, ...["en", "es", "ht"].filter((l) => l !== LANG)];
     $("#hero-rot").innerHTML = order.map((l, i) =>
-      `<span lang="${l}" class="${i === 0 ? "on" : ""}"><span class="bgtext">${esc(HERO[l][0])}</span><br><span class="bgtext accent">${esc(HERO[l][1])}</span></span>`).join("");
+      `<span lang="${l}" class="${i === 0 ? "on" : ""}">${esc(HERO[l][0])}<br><span class="accent">${esc(HERO[l][1])}</span></span>`).join("");
     this.i = 0;
   },
   restart() {
@@ -730,27 +738,34 @@ async function drawMap() {
   svg.dataset.drawn = "1";
   const [s, w, n, e] = d.bbox, k = Math.cos(((s + n) / 2) * Math.PI / 180);
   const W = 1000, H = Math.round(W * (n - s) / ((e - w) * k));
-  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   const X = (lon) => (((lon - w) / (e - w)) * W).toFixed(1), Y = (lat) => (((n - lat) / (n - s)) * H).toFixed(1);
+  // Show downtown Miami (with Little Havana, Overtown, and the coast), not the whole bay.
+  // On wide screens downtown sits to the right of the headline; on narrow ones it's in the middle.
+  const frame = () => {
+    const box = svg.getBoundingClientRect(), aspect = box.width / Math.max(1, box.height);
+    let cx, lonSpan, latSpan;
+    if (aspect > 1.3) { cx = -80.21; lonSpan = 0.096; latSpan = lonSpan * k / aspect; }
+    else { cx = -80.199; latSpan = 0.05; lonSpan = Math.min(0.096, latSpan * aspect / k); latSpan = lonSpan * k / aspect; }
+    const cy = 25.776, x0 = +X(cx - lonSpan / 2), x1 = +X(cx + lonSpan / 2), y0 = +Y(cy + latSpan / 2), y1 = +Y(cy - latSpan / 2);
+    svg.setAttribute("viewBox", `${x0.toFixed(1)} ${y0.toFixed(1)} ${(x1 - x0).toFixed(1)} ${(y1 - y0).toFixed(1)}`);
+  };
   const path = (pts) => "M" + pts.map(([la, lo]) => X(lo) + "," + Y(la)).join("L");
   const NS = "http://www.w3.org/2000/svg";
   const add = (tag, attrs, parent = svg) => { const el = document.createElementNS(NS, tag); for (const [a, v] of Object.entries(attrs)) el.setAttribute(a, v); parent.appendChild(el); return el; };
+  // just the shapes: land, water, river, causeways, bus routes. No place names.
   for (const poly of d.land) add("path", { d: path(poly) + "Z", class: "land" });
   for (const r of d.river) add("path", { d: path(r), class: "river" });
   for (const c of d.causeways) add("path", { d: path(c), class: "road" });
-  // a few quiet place names so it reads as Miami
-  for (const [label, la, lo] of [["Biscayne Bay", 25.795, -80.163], ["Miami Beach", 25.80, -80.128], ["Atlantic", 25.745, -80.118]])
-    add("text", { x: X(lo), y: Y(la), class: "label", "text-anchor": "middle" }).textContent = label;
-  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Bus routes draw themselves in, wipe away, and start again, for as long as the page is open.
+  // Each route starts partway through its 20-second cycle (a negative delay), so lines are already
+  // showing and moving the moment the page loads, and the routes stay out of step with each other.
   d.lines.forEach((line, i) => {
-    const p = add("path", { d: path(line), class: "bus", id: "rl" + i });
-    const len = Math.ceil(p.getTotalLength());
-    p.style.setProperty("--len", len); p.style.setProperty("--delay", (i * 0.1).toFixed(2) + "s");
-    if (still || i % 4) return;
-    const c = add("circle", { r: "4" });
-    const m = add("animateMotion", { dur: Math.round(len / 18 + 10) + "s", repeatCount: "indefinite", begin: (2 + i * 0.1).toFixed(2) + "s" }, c);
-    add("mpath", { href: "#rl" + i }, m);
+    const p = add("path", { d: path(line), class: "bus" });
+    p.style.setProperty("--len", Math.ceil(p.getTotalLength()) + "px");
+    p.style.setProperty("--delay", (-((i * 7.3) % 20)).toFixed(2) + "s");
   });
+  frame();
+  new ResizeObserver(frame).observe(svg);
 }
 
 /* ---------- map: street map by default (bus stops are easy to see), satellite as an option ---------- */
