@@ -1,0 +1,30 @@
+/* Shared look for the simple text pages (Privacy, Terms). Matches index.html. */
+:root { --ink:#12303A; --muted:#485f68; --bay-d:#054F59; --line:#DAD8D0; --bg:#F7F5F0; --surface:#FFFDF9; }
+* { box-sizing: border-box; }
+html { font-size: 18px; }
+body { margin: 0; color: var(--ink); background: var(--bg); line-height: 1.55; font-family: "Public Sans", "Segoe UI", Arial, sans-serif; }
+a { color: var(--bay-d); }
+a:hover { color: var(--ink); }
+:focus-visible { outline: 3px solid #f2a900; outline-offset: 2px; }
+.top { display: flex; align-items: center; height: 64px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 1.35rem; font-weight: 700; color: var(--ink); text-decoration: none; }
+main { max-width: 680px; margin: 0 auto; padding: 28px 20px 56px; }
+h1, .brand { font-weight: 800; }
+h1 { font-size: 2.2rem; line-height: 1.1; margin: .4rem 0 .5rem; }
+h2 { font-size: 1.4rem; margin: 2rem 0 .4rem; }
+p { margin: 0 0 .8rem; }
+ul { padding-left: 1.3rem; margin: 0 0 .8rem; }
+li { margin: .35rem 0; }
+.lead { color: var(--muted); font-size: 1.1rem; }
+.hint { color: var(--muted); font-size: .9rem; margin-top: 2rem; }
+.legal { max-width: 680px; margin: 0 auto; padding: 18px 20px 28px; font-size: .85rem; color: var(--muted); border-top: 1px solid var(--line); }
+.legal a { color: var(--muted); }
+.top { justify-content: space-between; gap: 12px; }
+.brand svg { flex: none; }
+.langs { display: flex; border: 1px solid var(--ink); border-radius: 3px; }
+.langs button { min-height: 36px; padding: 0 10px; font: inherit; font-size: .8rem; font-weight: 600; color: var(--ink); background: transparent; border: 0; cursor: pointer; }
+.langs button + button { border-left: 1px solid var(--ink); }
+.langs button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+[hidden] { display: none !important; }
+a { color: #1D5FD1; }
+@media (max-width: 420px) { .top { padding: 0 12px; } .brand { font-size: 1.15rem; } .langs button { padding: 0 7px; font-size: .74rem; } }

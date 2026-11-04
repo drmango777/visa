@@ -14,12 +14,16 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 import fetch_bls_prices  # noqa: E402
 import fetch_census_rent  # noqa: E402
+import fetch_coast  # noqa: E402
+import fetch_places  # noqa: E402
 import fetch_transit  # noqa: E402
 
 STEPS = [
     ("Rent by ZIP (Census)", fetch_census_rent.main),
     ("Everyday prices (BLS)", fetch_bls_prices.main),
     ("Bus stops and routes (Miami-Dade Transit)", fetch_transit.main),
+    ("Useful places (OpenStreetMap)", fetch_places.main),
+    ("Shape of Miami for the landing page (OpenStreetMap)", fetch_coast.main),
 ]
 
 failed = []

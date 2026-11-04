@@ -31,6 +31,8 @@ RENT = _load("rent.json")
 PRICES = _load("prices.json")
 STOPS = _load("transit_stops.json")
 ROUTES = _load("transit_routes.json")
+PLACES = _load("places.json")
+TRANSLATIONS = {k: v for k, v in (_load("translations.json") or {}).items() if not k.startswith("_")}
 
 
 def data_status():
@@ -39,6 +41,7 @@ def data_status():
         "rent": RENT is not None,
         "prices": PRICES is not None,
         "buses": STOPS is not None and ROUTES is not None,
+        "places": PLACES is not None,
     }
 
 
@@ -164,8 +167,104 @@ def buses_near(lat, lon, radius_miles):
             "changes_source": CHANGES.get("source"), "changes_url": CHANGES.get("source_url")}
 
 
+COAST = _load("coast.json")
+
+
+def _thin(pts, step):
+    return pts[::step] + ([pts[-1]] if len(pts) > 1 and (len(pts) - 1) % step else [])
+
+
+def route_lines(step=4, limit=55):
+    """The landing page drawing: land and water, the Miami River, causeways, and bus routes."""
+    bbox = tuple(COAST["bbox"]) if COAST else (25.73, -80.26, 25.83, -80.11)
+    out = {"bbox": bbox, "lines": [], "land": [], "river": [], "causeways": []}
+    if COAST:
+        out["land"] = [_thin(p, 2) for p in COAST["land"]]
+        out["river"] = COAST["river"]
+        out["causeways"] = [_thin(c, 2) for c in COAST["causeways"] if len(c) > 2]
+    if ROUTES is None:
+        return out
+    s, w, n, e = bbox
+    lines = []
+    for r in ROUTES["routes"].values():
+        for shape in r.get("shapes", []):
+            pts = [p for p in shape if s <= p[0] <= n and w <= p[1] <= e]
+            if len(pts) < 8:
+                continue
+            thin = pts[::step] + [pts[-1]]
+            lines.append([[round(a, 4), round(b, 4)] for a, b in thin])
+    lines.sort(key=len, reverse=True)
+    out["lines"] = lines[:limit]
+    return out
+
+
 def routes_gone(area_id):
     return CHANGES.get("gone", {}).get(area_id, [])
+
+
+# ---------- useful places (hospitals, libraries, ...) ----------
+
+PLACE_KINDS = (PLACES or {}).get("kinds", {})
+WALK_EASY_MILES = 0.6   # closer than this, we just say "walk"
+
+
+def _stops_near_fast(lat, lon, miles):
+    """Like _stops_within, but skips far stops cheaply first."""
+    box = miles / 69.0 * 1.2
+    out = []
+    for s in (STOPS or {}).get("stops", []):
+        if abs(s["lat"] - lat) > box or abs(s["lon"] - lon) > box * 1.15:
+            continue
+        d = miles_between(lat, lon, s["lat"], s["lon"])
+        if d <= miles:
+            out.append((d, s))
+    return sorted(out, key=lambda x: x[0])
+
+
+def _bus_between(home_stops, lat, lon):
+    """The one bus route that stops near both home and the place, with the least walking."""
+    place_stops = _stops_near_fast(lat, lon, ACCESS_MILES)
+    if not home_stops or not place_stops:
+        return None
+    a_by, b_by = {}, {}
+    for d, s in home_stops:
+        for r in s["routes"]:
+            a_by.setdefault(r, (d, s))
+    for d, s in place_stops:
+        for r in s["routes"]:
+            b_by.setdefault(r, (d, s))
+    best = None
+    for r in a_by.keys() & b_by.keys():
+        (da, sa), (db, sb) = a_by[r], b_by[r]
+        if sa["id"] == sb["id"]:
+            continue
+        if best is None or da + db < best[0]:
+            best = (da + db, r, sa, sb)
+    if best is None:
+        return None
+    _, r, sa, sb = best
+    return {"route": r, "name": (ROUTES or {}).get("routes", {}).get(r, {}).get("name", ""),
+            "board": sa["name"], "off": sb["name"]}
+
+
+def places_near(lat, lon, kinds=None, per_kind=5):
+    """The closest few places of each kind, and how to get there (walk, or which bus)."""
+    if PLACES is None:
+        return {"available": False}
+    want = [k for k in (kinds or PLACE_KINDS) if k in PLACE_KINDS]
+    home_stops = _stops_near_fast(lat, lon, ACCESS_MILES) if STOPS else []
+    out = {}
+    for k in want:
+        rows = sorted(((miles_between(lat, lon, p["lat"], p["lon"]), p) for p in PLACES["places"] if p["kind"] == k),
+                      key=lambda x: x[0])[:per_kind]
+        items = []
+        for i, (d, p) in enumerate(rows):
+            item = {**p, "miles": round(d, 2), "walk_minutes": round(d * CIRCUITY / WALK_MPH * 60)}
+            if i == 0 and d > WALK_EASY_MILES:   # only work out the bus for the closest one
+                item["bus"] = _bus_between(home_stops, p["lat"], p["lon"])
+            items.append(item)
+        out[k] = {"label": PLACE_KINDS[k], "items": items}
+    return {"available": True, "kinds": out, "source": PLACES["source"], "source_url": PLACES["source_url"]}
 
 
 def nearby(lat, lon, zip_code, radius_miles):
@@ -181,6 +280,7 @@ def nearby(lat, lon, zip_code, radius_miles):
         "prices_since": since.isoformat(),
         "buses": buses_near(lat, lon, radius_miles),
         "gone": routes_gone(area_id) if area_id else [],
+        "places": places_near(lat, lon),
     }
 
 
@@ -260,30 +360,117 @@ def _stops_within(lat, lon, miles):
     return sorted(out, key=lambda x: x[0])
 
 
-def curfew_check(lat1, lon1, lat2, lon2, end_min, curfew_min):
+# Curfew answers in the three languages the site supports.
+# Spanish and Haitian Creole should be checked by a native speaker.
+CURFEW_TEXT = {
+    "en": {
+        "too_early": "Your curfew is before the time you finish. Check the two times.",
+        "walk_line": "Walking the whole way is about {m} minutes. You'd get there around {t}, {when} your curfew.",
+        "before": "before", "after": "after",
+        "too_far": "These two places are {mi} miles apart, which is too far to walk.",
+        "advice": "If it's tight or late, talk to your officer or case manager about changing the time. Do it before that day, not after.",
+        "notes": ["This is an estimate, not a promise. Buses run late. Before you count on it, check the GO Miami-Dade Transit app or call 311.",
+                  "We can't see transfers or which way each bus is heading, so make sure you're on the right side of the street.",
+                  "Not legal advice. Your officer or case manager decides what counts as late."],
+        "no_data": "Bus data isn't loaded yet, so we can't check the bus.",
+        "no_stops": "We don't have bus stops close to one of these places. Check the GO Miami-Dade Transit app.",
+        "no_bus": "No. The last bus on route {r} near you leaves around {t}. You'd get to the stop after that.",
+        "missed_line": "Last bus on route {r} from {stop}: about {t}.",
+        "walk": "We couldn't find one bus between these two places, but you could walk it.",
+        "no_direct": "We couldn't find one bus between these two places. You may need to transfer, and we can't check transfers yet.",
+        "ok": "Yes. You'd get home around {t}. That's {m} minutes before your curfew.",
+        "tight": "Maybe. You'd get home around {t}, only {m} minutes before your curfew. One late bus could break it.",
+        "late": "No. You'd get home around {t}, {m} minutes after your curfew.",
+        "step_walk": "Walk about {m} to the stop at {stop}.",
+        "step_take": "Take route {r}{name}.",
+        "step_wait": " A bus comes about every {h} minutes, so plan to wait about {w}.",
+        "step_guess": " We don't know how often it comes, so we guessed.",
+        "step_ride": "Ride about {m}. Get off near {stop}.",
+        "step_home": "Walk about {m} to where you're staying.",
+        "last_line": "The last bus on route {r} from that stop leaves around {t}.",
+        "no_last": "We don't have the last-bus time for this route. Check the app.",
+        "min1": "1 minute", "mins": "{n} minutes",
+    },
+    "es": {
+        "too_early": "Tu toque de queda es antes de la hora en que terminas. Revisa las dos horas.",
+        "walk_line": "Caminando todo el trayecto son unos {m} minutos. Llegarías alrededor de las {t}, {when} de tu toque de queda.",
+        "before": "antes", "after": "después",
+        "too_far": "Estos dos lugares están a {mi} millas de distancia. Es demasiado lejos para caminar.",
+        "advice": "Si es justo o tarde, habla con tu oficial o tu trabajador de casos para cambiar la hora. Hazlo antes de ese día, no después.",
+        "notes": ["Esto es un cálculo, no una promesa. Los buses se atrasan. Antes de contar con esto, revisa la aplicación GO Miami-Dade Transit o llama al 311.",
+                  "No podemos ver trasbordos ni hacia dónde va cada bus, así que asegúrate de estar en el lado correcto de la calle.",
+                  "Esto no es consejo legal. Tu oficial o tu trabajador de casos decide qué cuenta como tarde."],
+        "no_data": "Los datos de los buses todavía no están cargados, así que no podemos revisar el bus.",
+        "no_stops": "No tenemos paradas de bus cerca de uno de estos lugares. Revisa la aplicación GO Miami-Dade Transit.",
+        "no_bus": "No. El último bus de la ruta {r} cerca de ti sale alrededor de las {t}. Llegarías a la parada después.",
+        "missed_line": "Último bus de la ruta {r} desde {stop}: alrededor de las {t}.",
+        "walk": "No encontramos un solo bus entre estos dos lugares, pero podrías ir caminando.",
+        "no_direct": "No encontramos un solo bus entre estos dos lugares. Puede que tengas que hacer trasbordo, y todavía no podemos revisar trasbordos.",
+        "ok": "Sí. Llegarías a casa alrededor de las {t}. Son {m} minutos antes de tu toque de queda.",
+        "tight": "Tal vez. Llegarías a casa alrededor de las {t}, solo {m} minutos antes de tu toque de queda. Un bus atrasado podría arruinarlo.",
+        "late": "No. Llegarías a casa alrededor de las {t}, {m} minutos después de tu toque de queda.",
+        "step_walk": "Camina unos {m} hasta la parada en {stop}.",
+        "step_take": "Toma la ruta {r}{name}.",
+        "step_wait": " Pasa un bus más o menos cada {h} minutos, así que cuenta con esperar unos {w}.",
+        "step_guess": " No sabemos cada cuánto pasa, así que lo calculamos.",
+        "step_ride": "Viaja unos {m}. Bájate cerca de {stop}.",
+        "step_home": "Camina unos {m} hasta donde te quedas.",
+        "last_line": "El último bus de la ruta {r} desde esa parada sale alrededor de las {t}.",
+        "no_last": "No tenemos la hora del último bus de esta ruta. Revisa la aplicación.",
+        "min1": "1 minuto", "mins": "{n} minutos",
+    },
+    "ht": {
+        "too_early": "Kouvrefe ou a pi bonè pase lè ou fini. Tcheke de lè yo.",
+        "walk_line": "Si ou mache tout wout la, li pran anviwon {m} minit. Ou ta rive vè {t}, {when} kouvrefe ou.",
+        "before": "anvan", "after": "apre",
+        "too_far": "De kote sa yo a {mi} mil youn ak lòt. Li twò lwen pou mache.",
+        "advice": "Si li sere oswa an reta, pale ak ofisye ou oswa jesyonè dosye ou pou chanje lè a. Fè sa anvan jou sa a, pa apre.",
+        "notes": ["Sa a se yon estimasyon, se pa yon pwomès. Bis yo konn an reta. Anvan ou konte sou sa, tcheke aplikasyon GO Miami-Dade Transit la oswa rele 311.",
+                  "Nou pa ka wè koneksyon ant bis yo ni ki direksyon chak bis ap pran, kidonk asire ou ou sou bon bò lari a.",
+                  "Sa a se pa konsèy legal. Se ofisye ou oswa jesyonè dosye ou ki deside sa ki konte kòm an reta."],
+        "no_data": "Done bis yo poko chaje, kidonk nou pa ka tcheke bis la.",
+        "no_stops": "Nou pa gen arè bis toupre youn nan kote sa yo. Tcheke aplikasyon GO Miami-Dade Transit la.",
+        "no_bus": "Non. Dènye bis wout {r} toupre ou a pati vè {t}. Ou ta rive nan arè a apre sa.",
+        "missed_line": "Dènye bis wout {r} soti {stop}: vè {t}.",
+        "walk": "Nou pa jwenn yon sèl bis ant de kote sa yo, men ou ta ka mache.",
+        "no_direct": "Nou pa jwenn yon sèl bis ant de kote sa yo. Ou ka bezwen chanje bis, epi nou poko ka tcheke sa.",
+        "ok": "Wi. Ou ta rive lakay vè {t}. Sa fè {m} minit anvan kouvrefe ou.",
+        "tight": "Petèt. Ou ta rive lakay vè {t}, sèlman {m} minit anvan kouvrefe ou. Yon bis an reta ta ka gate sa.",
+        "late": "Non. Ou ta rive lakay vè {t}, {m} minit apre kouvrefe ou.",
+        "step_walk": "Mache anviwon {m} pou rive nan arè a nan {stop}.",
+        "step_take": "Pran wout {r}{name}.",
+        "step_wait": " Yon bis pase apeprè chak {h} minit, kidonk prevwa tann anviwon {w}.",
+        "step_guess": " Nou pa konnen konbyen fwa li pase, kidonk nou devine.",
+        "step_ride": "Rete nan bis la anviwon {m}. Desann toupre {stop}.",
+        "step_home": "Mache anviwon {m} pou rive kote ou rete a.",
+        "last_line": "Dènye bis wout {r} soti nan arè sa a pati vè {t}.",
+        "no_last": "Nou pa gen lè dènye bis pou wout sa a. Tcheke aplikasyon an.",
+        "min1": "1 minit", "mins": "{n} minit",
+    },
+}
+
+
+def curfew_check(lat1, lon1, lat2, lon2, end_min, curfew_min, lang="en"):
+    T = CURFEW_TEXT.get(lang, CURFEW_TEXT["en"])
     if curfew_min <= end_min:
-        raise ValueError("Your curfew is before the time you finish. Check the two times.")
+        raise ValueError(T["too_early"])
     straight = miles_between(lat1, lon1, lat2, lon2)
     walk_min = straight * CIRCUITY / WALK_MPH * 60
     walk_arrive = end_min + walk_min
     walk_ok = straight <= 4 and walk_arrive <= curfew_min
     if straight <= 4:
-        walk_line = (f"Walking the whole way is about {round(walk_min)} minutes. You'd get there around "
-                     f"{fmt_time(walk_arrive)}, {'before' if walk_ok else 'after'} your curfew.")
+        walk_line = T["walk_line"].format(m=round(walk_min), t=fmt_time(walk_arrive), when=T["before"] if walk_ok else T["after"])
     else:
-        walk_line = f"These two places are {straight:.1f} miles apart, which is too far to walk."
+        walk_line = T["too_far"].format(mi=f"{straight:.1f}")
     out = {"status": "no_data", "headline": "", "plan": [], "last_bus_line": "", "walk_line": walk_line,
            "walk_ok": walk_ok, "miles_apart": round(straight, 1), "end": fmt_time(end_min), "curfew": fmt_time(curfew_min),
-           "advice": "If it's tight or late, talk to your officer or case manager about changing the time. Do it before that day, not after.",
-           "notes": ["This is an estimate, not a promise. Buses run late. Before you count on it, check the GO Miami-Dade Transit app or call 311.",
-                     "We can't see transfers or which way each bus is heading, so make sure you're on the right side of the street.",
-                     "Not legal advice. Your officer or case manager decides what counts as late."]}
+           "advice": T["advice"], "notes": list(T["notes"])}
     if STOPS is None:
-        out["headline"] = "Bus data isn't loaded yet, so we can't check the bus."
+        out["headline"] = T["no_data"]
         return out
     near_a, near_b = _stops_within(lat1, lon1, ACCESS_MILES), _stops_within(lat2, lon2, ACCESS_MILES)
     if not near_a or not near_b:
-        out["headline"] = "We don't have bus stops close to one of these places. Check the GO Miami-Dade Transit app."
+        out["headline"] = T["no_stops"]
         return out
     a_by, b_by = {}, {}
     for d, s in near_a:
@@ -319,31 +506,35 @@ def curfew_check(lat1, lon1, lat2, lon2, end_min, curfew_min):
             best = cand
     if best is None and missed is not None:
         out["status"] = "no_bus"
-        out["headline"] = (f"No. The last bus on route {missed['route']} near you leaves around {fmt_time(missed['last'])}. "
-                           f"You'd get to the stop after that.")
-        out["last_bus_line"] = f"Last bus on route {missed['route']} from {missed['board']}: about {fmt_time(missed['last'])}."
+        out["headline"] = T["no_bus"].format(r=missed["route"], t=fmt_time(missed["last"]))
+        out["last_bus_line"] = T["missed_line"].format(r=missed["route"], stop=missed["board"], t=fmt_time(missed["last"]))
         return out
     if best is None:
         out["status"] = "walk" if walk_ok else "no_direct"
-        out["headline"] = ("We couldn't find one bus between these two places, but you could walk it."
-                           if walk_ok else "We couldn't find one bus between these two places. You may need to transfer, and we can't check transfers yet.")
+        out["headline"] = T[out["status"]]
         return out
     margin = curfew_min - best["arrive"]
     arrive = fmt_time(best["arrive"])
     if margin >= 20:
-        out["status"], out["headline"] = "ok", f"Yes. You'd get home around {arrive}. That's {round(margin)} minutes before your curfew."
+        out["status"] = "ok"
     elif margin >= 0:
-        out["status"], out["headline"] = "tight", f"Maybe. You'd get home around {arrive}, only {round(margin)} minutes before your curfew. One late bus could break it."
+        out["status"] = "tight"
     else:
-        out["status"], out["headline"] = "late", f"No. You'd get home around {arrive}, {round(-margin)} minutes after your curfew."
+        out["status"] = "late"
+    out["headline"] = T[out["status"]].format(t=arrive, m=round(abs(margin)))
     nm = best["name"]
-    mins = lambda x: f"{max(1, round(x))} minute{'' if max(1, round(x)) == 1 else 's'}"
-    out["plan"] = [f"Walk about {mins(best['walk_a'])} to the stop at {best['board']}.",
-                   f"Take route {best['route']}{' (' + nm + ')' if nm else ''}." + (f" A bus comes about every {round(best['headway'])} minutes, so plan to wait about {round(best['wait'])}." if best["known"] else " We don't know how often it comes, so we guessed."),
-                   f"Ride about {mins(best['ride'])}. Get off near {best['off']}.",
-                   f"Walk about {mins(best['walk_b'])} to where you're staying."]
+
+    def mins(x):
+        n = max(1, round(x))
+        return T["min1"] if n == 1 else T["mins"].format(n=n)
+
+    take = T["step_take"].format(r=best["route"], name=f" ({nm})" if nm else "")
+    take += T["step_wait"].format(h=round(best["headway"]), w=round(best["wait"])) if best["known"] else T["step_guess"]
+    out["plan"] = [T["step_walk"].format(m=mins(best["walk_a"]), stop=best["board"]), take,
+                   T["step_ride"].format(m=mins(best["ride"]), stop=best["off"]),
+                   T["step_home"].format(m=mins(best["walk_b"]))]
     if best["last"] is not None:
-        out["last_bus_line"] = f"The last bus on route {best['route']} from that stop leaves around {fmt_time(best['last'])}."
+        out["last_bus_line"] = T["last_line"].format(r=best["route"], t=fmt_time(best["last"]))
     else:
-        out["last_bus_line"] = "We don't have the last-bus time for this route. Check the app."
+        out["last_bus_line"] = T["no_last"]
     return out

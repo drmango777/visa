@@ -12,6 +12,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -23,6 +24,7 @@ import tools  # noqa: E402
 
 STATIC = Path(__file__).parent / "static"
 app = FastAPI(title="Sail-by")
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 RADII = (0.5, 1.0, 2.0)
 
@@ -34,6 +36,8 @@ def config():
         "areas": [{"id": a["id"], "name": a["name"], "lat": a["lat"], "lon": a["lon"], "zips": a["zips"]}
                   for a in tools.AREAS],
         "data": tools.data_status(),
+        "place_kinds": tools.PLACE_KINDS,
+        "translations": tools.TRANSLATIONS,
         "today": date.today().isoformat(),
     }
 
@@ -104,7 +108,7 @@ def ask(req: AskRequest):
     if req.language not in ("English", "Español", "Kreyòl ayisyen"):
         raise HTTPException(400, "Unsupported language.")
     if not os.getenv("OPENAI_API_KEY"):
-        raise HTTPException(503, "The AI helper isn't turned on yet. The address box below still works.")
+        raise HTTPException(503, "The AI helper isn't turned on yet. The other pages still work.")
     try:
         return agent.ask(req.message, req.language, req.history[-8:], req.context)
     except Exception as e:
@@ -115,11 +119,16 @@ def ask(req: AskRequest):
 @app.get("/api/curfew")
 def curfew_endpoint(lat1: float = Query(..., ge=-90, le=90), lon1: float = Query(..., ge=-180, le=180),
                     lat2: float = Query(..., ge=-90, le=90), lon2: float = Query(..., ge=-180, le=180),
-                    end: str = Query(...), curfew: str = Query(...)):
+                    end: str = Query(...), curfew: str = Query(...), lang: str = Query("en", pattern="^(en|es|ht)$")):
     try:
-        return tools.curfew_check(lat1, lon1, lat2, lon2, tools.parse_time(end), tools.parse_time(curfew))
+        return tools.curfew_check(lat1, lon1, lat2, lon2, tools.parse_time(end), tools.parse_time(curfew), lang)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+@app.get("/api/lines")
+def lines():
+    return tools.route_lines()
 
 
 @app.get("/api/health")
@@ -131,6 +140,16 @@ def health():
 @app.get("/")
 def home():
     return FileResponse(STATIC / "index.html")
+
+
+@app.get("/privacy")
+def privacy_page():
+    return FileResponse(STATIC / "privacy.html")
+
+
+@app.get("/terms")
+def terms_page():
+    return FileResponse(STATIC / "terms.html")
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

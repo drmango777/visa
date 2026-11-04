@@ -52,6 +52,9 @@ def _slim(result):
     rent = result.get("rent")
     if isinstance(rent, dict):
         rent.pop("history", None)
+    places = result.get("places")
+    if isinstance(places, dict) and places.get("available"):  # just the closest of each kind
+        places["kinds"] = {k: {"label": v["label"], "closest": v["items"][:1]} for k, v in places["kinds"].items()}
     return result
 
 
@@ -156,12 +159,13 @@ def explain(context, language="English"):
 # Follow-ups work because the page sends back what is already known
 # (the place, the date) along with the last few messages.
 
-ASK_PROMPT = """You are Sail-by, a helper for people coming home from prison in Miami-Dade County. You cover three areas: Little Havana, Downtown, and Overtown.
+ASK_PROMPT = """You are a helper for people coming home from prison in Miami-Dade County. You cover three areas: Little Havana, Downtown, and Overtown.
 
 The person writes in their own words. Work out what they need, then use your tools to get real facts:
 - find_address: turn an address into a map location. Use it whenever they give an address or a place.
 - get_area_facts: rent change, price changes, and nearby bus routes (with what changed on each) for a location. Use it after find_address.
 - get_changes_since: everything that changed since a date. Use it when they give a date (a month and year is fine; use day 1) or ask what changed while they were away.
+- find_places: the closest hospitals, clinics, pharmacies, libraries, food help and shelters, government offices, courthouses, police, post offices, or consulates to a location, with how far each is and which bus gets there. Use it after find_address whenever they ask where the nearest place of some kind is.
 - check_curfew: whether they can get from one place to another by bus before curfew. Needs where they will be, where they sleep, the time they finish, and their curfew time (24-hour HH:MM).
 
 Rules:
@@ -198,6 +202,14 @@ ASK_TOOLS = [
             "zip": {"type": "string"}},
             "required": ["since"]}}},
     {"type": "function", "function": {
+        "name": "find_places",
+        "description": "The closest places of one kind to a location, how far each is, and which bus route gets there from the location.",
+        "parameters": {"type": "object", "properties": {
+            "lat": {"type": "number"}, "lon": {"type": "number"},
+            "kind": {"type": "string", "enum": list(tools.PLACE_KINDS) or ["hospital"],
+                     "description": "hospital, clinic, pharmacy, library, food (food banks and shelters), government, court, police, post (post office), or consulate (also embassies)."}},
+            "required": ["lat", "lon", "kind"]}}},
+    {"type": "function", "function": {
         "name": "check_curfew",
         "description": "Estimate whether someone can get from one place to their home by bus (or walking) before curfew.",
         "parameters": {"type": "object", "properties": {
@@ -207,6 +219,42 @@ ASK_TOOLS = [
             "curfew_time": {"type": "string", "description": "Their curfew, 24-hour HH:MM."}},
             "required": ["from_address", "home_address", "finish_time", "curfew_time"]}}},
 ]
+
+
+LANG_CODE = {"English": "en", "Español": "es", "Kreyòl ayisyen": "ht"}
+
+# The "What we checked" lines shown under each answer.
+STEP_TEXT = {
+    "en": {"address": "Looked up the address: {m}",
+           "area": "Checked {n} bus or train routes within {r} mi ({where})",
+           "outside": "outside the three areas",
+           "since": "Checked what changed since {d}: {n} new things to know",
+           "places": "Found the closest {label}",
+           "curfew": "Checked if you can get from {a} to {b} before {t}",
+           "failed": "Couldn't finish a step: {e}"},
+    "es": {"address": "Buscamos la dirección: {m}",
+           "area": "Revisamos {n} rutas de bus o tren a {r} mi ({where})",
+           "outside": "fuera de las tres zonas",
+           "since": "Revisamos qué cambió desde {d}: {n} cosas nuevas que saber",
+           "places": "Encontramos lo más cercano: {label}",
+           "curfew": "Revisamos si puedes ir de {a} a {b} antes de las {t}",
+           "failed": "No pudimos terminar un paso: {e}"},
+    "ht": {"address": "Nou chèche adrès la: {m}",
+           "area": "Nou tcheke {n} wout bis oswa tren nan {r} mil ({where})",
+           "outside": "deyò twa zòn yo",
+           "since": "Nou tcheke sa ki chanje depi {d}: {n} nouvo bagay pou konnen",
+           "places": "Nou jwenn sa ki pi pre a: {label}",
+           "curfew": "Nou tcheke si ou ka soti {a} rive {b} anvan {t}",
+           "failed": "Nou pa t ka fini yon etap: {e}"},
+}
+PLACE_LABEL = {
+    "es": {"hospital": "hospitales", "clinic": "clínicas", "pharmacy": "farmacias", "library": "bibliotecas",
+           "food": "ayuda con comida y refugios", "government": "oficinas del gobierno", "court": "tribunales",
+           "police": "policía", "post": "oficinas de correo", "consulate": "consulados y embajadas"},
+    "ht": {"hospital": "lopital", "clinic": "klinik", "pharmacy": "famasi", "library": "bibliyotèk",
+           "food": "èd manje ak abri", "government": "biwo gouvènman", "court": "tribinal",
+           "police": "polis", "post": "biwo lapòs", "consulate": "konsila ak anbasad"},
+}
 
 
 def _known(ctx):
@@ -233,15 +281,17 @@ def ask(message, language="English", history=None, context=None):
     msgs.append({"role": "user", "content": message[:500]})
 
     cp = ctx.get("place") if isinstance(ctx.get("place"), dict) else {}
-    found = {"place": None, "since": None, "curfew": None, "matched": cp.get("matched", ""), "zip": cp.get("zip", ""),
+    found = {"place": None, "since": None, "curfew": None, "show": [], "matched": cp.get("matched", ""), "zip": cp.get("zip", ""),
              "area_id": cp.get("area_id", "")}
     steps = []
+    lang = LANG_CODE.get(language, "en")
+    S = STEP_TEXT[lang]
 
     def run(name, a):
         if name == "find_address":
             r = tools.geocode(a["address"])
             found["matched"], found["zip"] = r["matched"], r.get("zip", "")
-            steps.append(f"Looked up the address: {r['matched']}")
+            steps.append(S["address"].format(m=r["matched"]))
             return r
         if name == "get_area_facts":
             lat, lon = float(a.get("lat", cp.get("lat"))), float(a.get("lon", cp.get("lon")))
@@ -249,8 +299,8 @@ def ask(message, language="English", history=None, context=None):
             zip_code = (a.get("zip") or found["zip"] or "")[:5]
             r = tools.nearby(lat, lon, zip_code, radius)
             n = len(r["buses"]["routes"]) if r["buses"].get("available") else 0
-            where = r["area"]["name"] if r["area"] else "outside the three areas"
-            steps.append(f"Checked rent, prices, and {n} bus or train routes within {radius:g} mile{'' if radius == 1 else 's'} ({where})")
+            where = r["area"]["name"] if r["area"] else S["outside"]
+            steps.append(S["area"].format(n=n, r=f"{radius:g}", where=where))
             found["area_id"] = r["area"]["id"] if r["area"] else ""
             found["place"] = {"lat": lat, "lon": lon, "zip": zip_code, "radius": radius, "area_id": found["area_id"],
                               "matched": found["matched"] or (r["area"]["name"] if r["area"] else "Your location")}
@@ -260,14 +310,29 @@ def ask(message, language="English", history=None, context=None):
             zip_code = (a.get("zip") or found["zip"] or "")[:5]
             r = tools.changes_since(a["since"], area_id if area_id in tools.AREA_BY_ID else None, zip_code)
             new = sum(1 for e in r["events"] if not e["still_true"])
-            steps.append(f"Checked what changed since {r['since']}: {new} new things to know")
+            steps.append(S["since"].format(d=r["since"], n=new))
             found["since"] = {"date": r["since"], "area_id": area_id or "", "zip": zip_code}
             return _slim(r)
+        if name == "find_places":
+            lat, lon = float(a.get("lat", cp.get("lat"))), float(a.get("lon", cp.get("lon")))
+            r = tools.places_near(lat, lon, [a["kind"]], per_kind=3)
+            if not r.get("available") or a["kind"] not in r["kinds"]:
+                raise ValueError("We don't have that kind of place on our list.")
+            label = PLACE_LABEL.get(lang, {}).get(a["kind"]) or r["kinds"][a["kind"]]["label"].lower()
+            steps.append(S["places"].format(label=label))
+            if found["place"] is None:
+                area = tools.nearest_area(lat, lon)
+                found["area_id"] = area["id"] if area else found["area_id"]
+                found["place"] = {"lat": lat, "lon": lon, "zip": found["zip"], "radius": float(cp.get("radius", 1)),
+                                  "area_id": found["area_id"], "matched": found["matched"] or "Your location"}
+            if a["kind"] not in found["show"]:
+                found["show"].append(a["kind"])
+            return r
         if name == "check_curfew":
             p1, p2 = tools.geocode(a["from_address"]), tools.geocode(a["home_address"])
             end, cur = tools.parse_time(a["finish_time"]), tools.parse_time(a["curfew_time"])
-            r = tools.curfew_check(p1["lat"], p1["lon"], p2["lat"], p2["lon"], end, cur)
-            steps.append(f"Checked if you can get from {p1['matched']} to {p2['matched']} before {tools.fmt_time(cur)}")
+            r = tools.curfew_check(p1["lat"], p1["lon"], p2["lat"], p2["lon"], end, cur, lang)
+            steps.append(S["curfew"].format(a=p1["matched"], b=p2["matched"], t=tools.fmt_time(cur)))
             found["curfew"] = {"from": p1["matched"], "home": p2["matched"], "end": a["finish_time"], "curfew": a["curfew_time"],
                                "lat1": p1["lat"], "lon1": p1["lon"], "lat2": p2["lat"], "lon2": p2["lon"]}
             return r
@@ -277,7 +342,8 @@ def ask(message, language="English", history=None, context=None):
         msg = client.chat.completions.create(model=MODEL, messages=msgs, tools=ASK_TOOLS, temperature=0.2).choices[0].message
         if not msg.tool_calls:
             answer = (msg.content or "").strip() or "I looked things up. The other pages show the details."
-            return {"answer": answer, "steps": steps, "place": found["place"], "since": found["since"], "curfew": found["curfew"]}
+            return {"answer": answer, "steps": steps, "place": found["place"], "since": found["since"], "curfew": found["curfew"],
+                    "show": found["show"]}
         msgs.append({"role": "assistant", "content": msg.content or "", "tool_calls": [
             {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
             for tc in msg.tool_calls]})
@@ -286,6 +352,6 @@ def ask(message, language="English", history=None, context=None):
                 result = run(tc.function.name, json.loads(tc.function.arguments or "{}"))
             except Exception as e:  # noqa: BLE001
                 result = {"error": str(e)}
-                steps.append(f"Couldn't finish a step: {e}")
+                steps.append(S["failed"].format(e=e))
             msgs.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(result)})
     raise RuntimeError("The agent took too many steps.")

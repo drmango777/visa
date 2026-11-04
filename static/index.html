@@ -6,267 +6,706 @@
 <title>Sail-by</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,700..900&family=Public+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-:root { --ink:#12303A; --muted:#485f68; --bay:#07707E; --bay-d:#054F59; --line:#D4DDE0; --tint:#E4EEF0; --heat:#C2410C; --sun:#FFC531; --edge:#6F8791; }
+:root { --ink:#12303A; --muted:#4f6168; --line:#DAD8D0; --line-2:#C9C6BC; --bg:#F7F5F0; --surface:#FFFDF9; --skel:#E7E4DC;
+  --blue:#1D5FD1; --blue-d:#164AA6; --water:#DCE7F3; --link:#1D5FD1; --heat:#B33A0B; --good:#17704a; --head:64px; --r:3px;
+  --display:"Archivo", "Arial Narrow", "Public Sans", sans-serif; }
 * { box-sizing: border-box; }
 html { font-size: 18px; }
-body { margin: 0; color: var(--ink); background: #fff; line-height: 1.45; font-family: "Atkinson Hyperlegible", Verdana, "Segoe UI", sans-serif; }
-h1 { font-size: 1.7rem; line-height: 1.2; margin: 0 0 .4rem; }
-h2 { font-size: 1.3rem; line-height: 1.25; margin: 0 0 .5rem; }
+body { margin: 0; color: var(--ink); background: var(--bg); line-height: 1.5; font-family: "Public Sans", "Segoe UI", Arial, sans-serif; }
+h1 { font-size: 2.2rem; line-height: 1.1; letter-spacing: -.01em; margin: 0 0 .5rem; font-weight: 800; }
+h2 { font-size: 1.3rem; line-height: 1.25; margin: 0 0 .5rem; font-weight: 700; }
 h3 { font-size: 1.05rem; margin: 1.2rem 0 .3rem; }
 p { margin: 0 0 .7rem; }
-a { color: var(--bay-d); }
+a { color: var(--link); }
+a:hover { color: var(--blue-d); }
 :focus-visible { outline: 3px solid #f2a900; outline-offset: 2px; }
 .hint { color: var(--muted); font-size: .9rem; }
-.lead { color: var(--muted); max-width: 60ch; }
+.lead { color: var(--muted); max-width: 60ch; font-size: 1.05rem; }
 [hidden] { display: none !important; }
+@media (max-width: 600px) { h1 { font-size: 1.8rem; } }
 
-/* top bar */
-.top { border-bottom: 1px solid var(--line); background: #fff; }
-.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 28px; padding: 10px 20px 0; }
-.brand { display: flex; align-items: center; gap: 10px; font-size: 1.4rem; font-weight: 700; padding-bottom: 8px; }
-.tabs { display: flex; flex-wrap: wrap; gap: 2px; }
-.tab { min-height: 52px; padding: 0 16px; font: inherit; font-weight: 700; color: var(--muted); background: none; border: 0; border-bottom: 4px solid transparent; cursor: pointer; }
-.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--bay); }
-@media (max-width: 700px) { .tabs { display: grid; grid-template-columns: 1fr 1fr; width: 100%; } .tab { min-height: 48px; } }
+/* top bar: tabs sit in the header on wide screens, and in a bar at the bottom on smaller ones */
+.top { position: sticky; top: 0; z-index: 1100; border-bottom: 1px solid var(--line); background: var(--surface); }
+.bar { display: flex; align-items: center; gap: 20px; height: var(--head); padding: 0 20px; max-width: 1400px; margin: 0 auto; }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 1.35rem; font-weight: 800; color: var(--ink); text-decoration: none; margin-right: auto; }
+.brand:hover { color: var(--ink); }
+.tabs { display: flex; height: 100%; }
+.tab { height: 100%; padding: 0 14px; font: inherit; font-size: .95rem; font-weight: 600; color: var(--muted); background: none; border: 0; border-bottom: 3px solid transparent; border-top: 3px solid transparent; cursor: pointer; }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--blue); }
+.tab .short { display: none; }
+.langs { display: flex; border: 1px solid var(--ink); border-radius: var(--r); flex: none; }
+.langs button { min-height: 36px; padding: 0 10px; font: inherit; font-size: .8rem; font-weight: 600; color: var(--ink); background: transparent; border: 0; cursor: pointer; }
+.langs button + button { border-left: 1px solid var(--ink); }
+.langs button:hover { background: var(--bg); }
+.langs button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+@media (max-width: 1080px) {
+  .tab .short { display: inline; } .tab .long { display: none; }
+  .tabs { position: fixed; left: 0; right: 0; bottom: 0; height: auto; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+  .tab { min-height: 62px; padding: 6px 4px; font-size: .8rem; line-height: 1.15; border-bottom: 0; }
+  .tab[aria-selected="true"] { border-top-color: var(--blue); }
+  body { padding-bottom: calc(62px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 420px) { .bar { padding: 0 12px; gap: 8px; } .brand { font-size: 1.15rem; gap: 6px; } .brand svg { width: 22px; } .langs button { padding: 0 7px; font-size: .74rem; } }
 
 /* forms */
 label, .label { display: block; font-weight: 700; margin: 1.1rem 0 .3rem; }
-input[type=text], input[type=date], input[type=time], select, textarea { width: 100%; min-height: 52px; font: inherit; color: var(--ink); padding: .5rem .9rem; border: 2px solid var(--edge); border-radius: 8px; background: #fff; }
+input[type=text], input[type=date], input[type=time], select, textarea { width: 100%; min-height: 52px; font: inherit; color: var(--ink); padding: .5rem .9rem; border: 1px solid var(--ink); border-radius: var(--r); background: #fff; }
 textarea { resize: vertical; line-height: 1.4; }
-button.primary { min-height: 54px; font: inherit; font-weight: 700; color: #fff; background: var(--bay); border: 0; border-radius: 8px; padding: .4rem 1.5rem; cursor: pointer; }
-button.primary:hover { background: var(--bay-d); }
+button.primary { min-height: 52px; font: inherit; font-weight: 700; color: #fff; background: var(--blue); border: 0; border-radius: var(--r); padding: .4rem 1.8rem; cursor: pointer; }
+button.primary:hover { background: var(--blue-d); }
 button.primary[disabled] { opacity: .6; cursor: wait; }
-button.plain { min-height: 48px; font: inherit; font-weight: 700; color: var(--bay-d); background: #fff; border: 2px solid var(--bay); border-radius: 8px; padding: .2rem 1rem; cursor: pointer; }
-.seg { display: flex; flex-wrap: wrap; gap: 8px; }
-.seg button { flex: 1 1 auto; min-height: 48px; font: inherit; color: var(--ink); background: #fff; border: 2px solid var(--edge); border-radius: 8px; padding: .2rem .9rem; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 700; }
-.error { background: #fde9e1; color: #7a2a06; padding: .8rem 1rem; border-radius: 8px; margin-top: 1rem; }
-.notice { background: var(--tint); padding: .8rem 1rem; border-radius: 8px; margin: 1rem 20px; }
+button.plain { min-height: 46px; font: inherit; font-weight: 600; color: var(--ink); background: transparent; border: 1px solid var(--ink); border-radius: var(--r); padding: .2rem 1.1rem; cursor: pointer; }
+button.plain:hover { background: var(--surface); }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button { flex: 1 1 auto; min-height: 46px; font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--ink); border-radius: var(--r); padding: .2rem .9rem; cursor: pointer; }
+.seg button:hover { background: var(--surface); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: #fff; font-weight: 700; }
+.error { background: #FBEAE3; color: #7a2a06; padding: .8rem 1rem; border: 1px solid #E9B9A5; border-radius: var(--r); margin-top: 1rem; }
+.notice { background: var(--surface); border: 1px solid var(--line); padding: .8rem 1rem; border-radius: var(--r); margin: 1rem 20px; }
+
+/* loading placeholders */
+.skel { display: block; height: .95em; margin: .55em 0; border-radius: 2px; background: var(--skel); animation: pulse 1.4s ease-in-out infinite; }
+.skel.big { height: 1.5em; margin-bottom: .8em; }
+@keyframes pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* landing page */
+.hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--ink); min-height: min(64vh, 580px); display: flex; align-items: flex-end; background: var(--water); }
+.hero svg.map { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.map .land { fill: var(--bg); stroke: #b9c9da; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.map .river { fill: none; stroke: var(--water); stroke-width: 3.5; vector-effect: non-scaling-stroke; }
+.map .road { fill: none; stroke: var(--ink); stroke-opacity: .35; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.map .bus { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-opacity: .2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke;
+  stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: draw 5s ease-out forwards; animation-delay: var(--delay); }
+.map circle { fill: var(--blue); }
+.map .label { font-family: var(--display); font-stretch: 80%; font-weight: 800; font-size: 13px; letter-spacing: .14em; fill: #6d8aa8; text-transform: uppercase; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .map .bus { animation: none; stroke-dashoffset: 0; } .map circle { display: none; } }
+.hero-in { position: relative; width: 100%; max-width: 1200px; margin: 0 auto; padding: 72px 28px 56px; }
+.hero h1 { font-family: var(--display); font-stretch: 72%; font-weight: 900; font-size: clamp(3rem, 8.5vw, 7rem); line-height: .9; letter-spacing: -.01em; text-transform: uppercase; margin: 0 0 1.2rem; max-width: 12ch; }
+.hero h1 .accent { color: var(--blue); }
+.rot { display: grid; }
+.rot > span { grid-area: 1 / 1; opacity: 0; transition: opacity .5s ease; }
+.rot > span.on { opacity: 1; }
+.hero h1 .bgtext, .hero .lead span { background: var(--bg); padding: 0 .08em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.hero .lead { font-size: clamp(1.05rem, 2vw, 1.3rem); color: var(--ink); max-width: 34ch; margin: 0; }
+.hero .lead span { padding: 2px 6px; margin-left: -6px; line-height: 1.7; }
+.options { max-width: 1200px; margin: 0 auto; padding: 40px 28px 72px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.options button { display: flex; flex-direction: column; justify-content: space-between; gap: 18px; min-height: 190px; text-align: left; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--ink); border-radius: var(--r); padding: 24px 26px; cursor: pointer; }
+.options button:hover { background: var(--blue); border-color: var(--blue); color: #fff; }
+.options button:hover .num, .options button:hover span { color: #dbe6fb; }
+.options .num { font-family: var(--display); font-stretch: 72%; font-weight: 800; font-size: 1rem; color: var(--blue); }
+.options b { display: block; font-family: var(--display); font-stretch: 75%; font-weight: 800; font-size: clamp(1.8rem, 3.4vw, 2.6rem); line-height: 1; text-transform: uppercase; }
+.options span { display: block; color: var(--muted); font-size: 1rem; margin-top: 8px; }
+@media (max-width: 700px) {
+  .hero { min-height: 0; } .hero-in { padding: 56px 20px 36px; }
+  .options { grid-template-columns: 1fr; padding: 24px 20px 48px; gap: 10px; }
+  .options button { min-height: 0; padding: 18px 20px; }
+}
+
+/* page heading row */
+.pagehead { border-bottom: 1px solid var(--line); }
+.pagehead-in { max-width: 1400px; margin: 0 auto; padding: 34px 28px 26px; }
+.pagehead .lead { margin: 0; }
+@media (max-width: 600px) { .pagehead-in { padding: 24px 20px 18px; } }
 
 /* layouts */
-.askwrap { max-width: 780px; margin: 0 auto; padding: 34px 20px 90px; }
-.twocol { display: grid; grid-template-columns: minmax(0, 430px) minmax(0, 1fr); min-height: calc(100vh - 80px); }
-.left { background: #fff; padding: 26px 28px 56px; }
-.right { background: var(--tint); padding: 40px 48px 64px; min-width: 0; }
+.askwrap { max-width: 720px; margin: 0 auto; padding: 48px 20px 72px; }
+.twocol { display: grid; grid-template-columns: minmax(0, 430px) minmax(0, 1fr); min-height: calc(100vh - var(--head)); }
+.left { padding: 28px 28px 56px; }
+.right { background: var(--surface); border-left: 1px solid var(--line); padding: 36px 48px 64px; min-width: 0; }
 .right .inner { max-width: 720px; }
-.areagrid { display: grid; background: #fff; grid-template-columns: minmax(0, 430px) minmax(0, 1fr); grid-template-areas: "form map" "results map"; }
-.form { grid-area: form; padding: 26px 28px 0; }
+.areagrid { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); grid-template-areas: "form map" "results map"; }
+.form { grid-area: form; padding: 28px 28px 0; }
 .results { grid-area: results; padding: 0 28px 56px; }
-.mapcol { grid-area: map; position: sticky; top: 0; align-self: start; height: 100vh; background: #3d6f7f; overflow: hidden; }
+.mapcol { grid-area: map; position: sticky; top: var(--head); align-self: start; height: calc(100vh - var(--head)); background: #E8E6E0; overflow: hidden; border-left: 1px solid var(--line); }
 #map, #map-leaflet { position: absolute; inset: 0; }
-#map-ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 2rem; color: #fff; font-size: 1.15rem; }
-#legend { position: absolute; left: 14px; bottom: 22px; z-index: 500; background: #fff; border-radius: 8px; padding: 10px 14px; font-size: .88rem; max-width: 250px; box-shadow: 0 1px 6px rgba(0,0,0,.3); }
+#map-ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 2rem; color: var(--muted); font-size: 1.1rem; }
+#legend { position: absolute; left: 12px; bottom: 22px; z-index: 500; background: var(--surface); border: 1px solid var(--ink); border-radius: var(--r); padding: 10px 14px; font-size: .85rem; max-width: 260px; }
 @media (max-width: 899px) {
   .twocol { grid-template-columns: 1fr; }
-  .right { padding: 28px 20px 56px; }
+  .right { padding: 28px 20px 56px; border-left: 0; border-top: 1px solid var(--line); }
   .areagrid { grid-template-columns: 1fr; grid-template-areas: "form" "map" "results"; }
-  .mapcol { position: relative; height: 380px; }
+  .mapcol { position: relative; top: 0; height: 420px; border-left: 0; margin-top: 24px; }
+  .form, .results, .left { padding-left: 20px; padding-right: 20px; }
 }
+
+/* ask page */
+.section-h { font-size: 1rem; font-weight: 700; margin: 2.4rem 0 .3rem; }
+.examples { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); }
+.examples button { text-align: left; min-height: 48px; font: inherit; color: var(--ink); background: none; border: 0; border-top: 1px solid var(--line); padding: .75rem 0; cursor: pointer; }
+.examples button:hover { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+.examples mark { background: none; color: var(--muted); font-style: italic; }
+.shortcuts { border-bottom: 1px solid var(--line); }
+.shortcuts button { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; width: 100%; text-align: left; font: inherit; color: var(--ink); background: none; border: 0; border-top: 1px solid var(--line); padding: .85rem 0; cursor: pointer; }
+.shortcuts button:hover b { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+.shortcuts span { color: var(--muted); font-size: .92rem; text-align: right; }
+
+/* map layer switches */
+.layers { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; margin: .2rem 0 0; padding: 0; border: 0; }
+.layers legend { font-weight: 700; padding: 0; margin-bottom: .3rem; }
+.layers label { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; font-weight: 400; cursor: pointer; }
+.layers input { width: 20px; height: 20px; accent-color: var(--blue); flex: none; margin: 0; }
+@media (max-width: 380px) { .layers { grid-template-columns: 1fr; } }
+.pin { display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: 24px; height: 24px; padding: 0 4px; border-radius: 2px; background: var(--ink); color: #fff; font-size: .7rem; font-weight: 800; line-height: 1; border: 2px solid #fff; outline: 1px solid var(--ink); }
+.pin.stop { min-width: 16px; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid var(--ink); outline: 0; }
+.pm { background: none; border: 0; }
+.pm .pin { width: 100%; height: 100%; font-size: 11px; }
+.place { padding: 14px 0; border-top: 1px solid var(--line); }
+.place .kind { display: flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 700; color: var(--muted); }
+.place .name { font: inherit; font-weight: 700; font-size: 1.1rem; color: var(--ink); background: none; border: 0; padding: 0; margin: 4px 0 2px; text-align: left; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
+.place .name:hover { color: var(--blue); text-decoration-color: var(--blue); }
+.place .how { margin: 4px 0 0; }
+.place .others { font-size: .9rem; color: var(--muted); margin-top: 4px; }
 
 /* answers and results */
 .turn { border-top: 1px solid var(--line); padding: 1.1rem 0; margin-top: 1.1rem; }
 .you { font-weight: 700; margin-bottom: .5rem; }
 .steps { margin: .2rem 0 .8rem; padding-left: 1.2rem; color: var(--muted); font-size: .95rem; }
 .answer { font-size: 1.1rem; white-space: pre-wrap; }
-.examples { display: flex; flex-direction: column; gap: 8px; margin-top: .6rem; }
-.examples button { text-align: left; min-height: 48px; font: inherit; color: var(--ink); background: #fff; border: 2px solid var(--line); border-radius: 8px; padding: .4rem .9rem; cursor: pointer; }
-.examples button:hover { border-color: var(--bay); }
 .block { padding: 22px 0; border-top: 1px solid var(--line); }
-.big { font-size: 1.4rem; font-weight: 700; line-height: 1.3; }
 .split { display: flex; gap: 16px; align-items: center; justify-content: space-between; }
-.row2 { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid #B9CDD2; }
-.row2:last-child { border-bottom: 1px solid #B9CDD2; }
+.row2 { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid var(--line); }
+.row2:last-child { border-bottom: 1px solid var(--line); }
 table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: .5rem .3rem; border-top: 1px solid #E3E9EB; vertical-align: top; }
+th, td { text-align: left; padding: .5rem .3rem; border-top: 1px solid var(--line); vertical-align: top; }
 th { font-size: .9rem; color: var(--muted); }
 .up { color: var(--heat); font-weight: 700; }
-.good { color: #17704a; font-weight: 700; }
+.good { color: var(--good); font-weight: 700; }
 .src { font-size: .85rem; color: var(--muted); }
-details.grp { border: 1px solid var(--line); border-radius: 10px; margin: .7rem 0; padding: 0 1rem; }
+details.grp { border-top: 1px solid var(--line); }
+details.grp:last-of-type { border-bottom: 1px solid var(--line); }
 details.grp > summary, details.more > summary { min-height: 52px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; }
-details.more > summary { color: var(--bay-d); min-height: 46px; }
-.count { background: var(--tint); border-radius: 999px; padding: 0 .65rem; font-size: .9rem; }
-.route { display: flex; gap: 14px; padding: 10px 0; border-top: 1px solid #E3E9EB; }
-.chip { flex: none; min-width: 56px; min-height: 44px; font: inherit; font-weight: 700; color: #fff; background: var(--bay); border: 0; border-radius: 999px; cursor: pointer; }
-.chip[aria-pressed="true"] { outline: 3px solid var(--sun); outline-offset: 2px; }
+details.more > summary { color: var(--link); min-height: 46px; font-weight: 600; }
+.count { color: var(--muted); font-weight: 400; }
+.route { display: flex; gap: 14px; padding: 10px 0; border-top: 1px solid var(--line); }
+.chip { flex: none; min-width: 58px; min-height: 42px; font: inherit; font-weight: 700; color: var(--ink); background: #fff; border: 1px solid var(--ink); border-radius: var(--r); cursor: pointer; }
+.chip:hover { background: var(--bg); }
+.chip[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
 .route .name { font-weight: 700; }
 .route .meta { font-size: .92rem; color: var(--muted); }
 .route .change { font-size: .95rem; margin-top: 4px; }
-.gone { background: #fde9e1; border-radius: 10px; padding: .8rem 1rem; margin-top: .8rem; }
+.gone { border: 1px solid var(--line-2); border-radius: var(--r); padding: .8rem 1rem; margin-top: .8rem; background: var(--surface); }
 .gone li { margin: .3rem 0; }
 .ev { display: flex; gap: 14px; }
 .ev .d { flex: none; width: 92px; text-align: right; padding-top: 2px; }
 .ev .d b { display: block; font-size: 1.5rem; line-height: 1.1; }
 .ev .d span { color: var(--muted); font-size: .92rem; }
-.ev .rail { flex: none; width: 24px; position: relative; }
-.ev .rail::before { content: ""; position: absolute; left: 11px; top: 0; bottom: 0; width: 2px; background: #8FAAB1; }
+.ev .rail { flex: none; width: 20px; position: relative; }
+.ev .rail::before { content: ""; position: absolute; left: 9px; top: 0; bottom: 0; width: 2px; background: var(--line-2); }
 .ev:last-child .rail::before { bottom: auto; height: 18px; }
-.ev .rail::after { content: ""; position: absolute; left: 4px; top: 6px; width: 16px; height: 16px; border-radius: 50%; background: var(--bay); border: 3px solid var(--tint); }
+.ev .rail::after { content: ""; position: absolute; left: 4px; top: 8px; width: 12px; height: 12px; background: var(--blue); }
 .ev .body { flex: 1; min-width: 0; padding-bottom: 28px; }
-.ev h3 { margin: 0 0 4px; font-size: 1.2rem; line-height: 1.3; }
-.verdict { padding: 22px 24px; border-radius: 12px; }
-.verdict h2 { font-size: 1.7rem; margin: 0 0 6px; }
-.verdict.good { background: #DDF0E5; } .verdict.warn { background: #FFF0C2; } .verdict.bad { background: #FBE0D5; } .verdict.neutral { background: #fff; }
+.ev h3 { margin: 0 0 4px; font-size: 1.15rem; line-height: 1.3; }
+.viewswitch { display: inline-flex; border: 1px solid var(--ink); border-radius: var(--r); margin: 1rem 0 .4rem; }
+.viewswitch button { min-height: 44px; padding: 0 1.2rem; font: inherit; font-weight: 600; color: var(--ink); background: transparent; border: 0; cursor: pointer; }
+.viewswitch button + button { border-left: 1px solid var(--ink); }
+.viewswitch button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.sincetable td:nth-child(n+2), .sincetable th:nth-child(n+2) { white-space: nowrap; }
+.verdict { padding: 20px 22px; border: 2px solid var(--ink); border-radius: var(--r); background: #fff; }
+.verdict h2 { font-size: 1.5rem; margin: 0 0 6px; }
+.verdict.good h2 { color: var(--good); } .verdict.warn h2 { color: #8a5a00; } .verdict.bad h2 { color: var(--heat); }
 .right ol { padding-left: 1.3rem; } .right ol li { margin: .4rem 0; }
-@media print { .top, .left, .form, .mapcol, button, .tabs { display: none !important; } .right { background: #fff; } }
+.legal { max-width: 1100px; margin: 0 auto; padding: 18px 20px 28px; font-size: .85rem; line-height: 1.5; color: var(--muted); border-top: 1px solid var(--line); }
+.legal p { margin: 0 0 .4rem; }
+.legal a { color: var(--muted); }
+.legal a:hover { color: var(--ink); }
+@media print { .top, .left, .form, .mapcol, button, .tabs, .legal, .layers { display: none !important; } body, .right { background: #fff; padding: 0; } }
 </style>
 </head>
 <body>
 <header class="top">
   <div class="bar">
-    <div class="brand">
-      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path d="M15 3 L15 21 L5 21 Z" fill="#07707E"/><path d="M17 8 L17 21 L25 21 Z" fill="#12303A"/><path d="M3 24 L27 24 L24 28 L6 28 Z" fill="#12303A"/></svg>
+    <a class="brand" href="/" id="home-link">
+      <svg width="28" height="28" viewBox="0 0 30 30" aria-hidden="true"><path d="M15 3 L15 21 L5 21 Z" fill="#1D5FD1"/><path d="M17 8 L17 21 L25 21 Z" fill="#12303A" opacity=".55"/><path d="M3 24 L27 24 L24 28 L6 28 Z" fill="#12303A"/></svg>
       Sail-by
+    </a>
+    <div class="tabs" role="tablist" data-i18n-aria="nav">
+      <button class="tab" role="tab" id="t-ask" aria-selected="false"><span class="long" data-i18n="tab_ask"></span><span class="short" data-i18n="tab_ask_s"></span></button>
+      <button class="tab" role="tab" id="t-area" aria-selected="false"><span class="long" data-i18n="tab_area"></span><span class="short" data-i18n="tab_area_s"></span></button>
+      <button class="tab" role="tab" id="t-since" aria-selected="false"><span class="long" data-i18n="tab_since"></span><span class="short" data-i18n="tab_since_s"></span></button>
+      <button class="tab" role="tab" id="t-curfew" aria-selected="false"><span class="long" data-i18n="tab_curfew"></span><span class="short" data-i18n="tab_curfew_s"></span></button>
     </div>
-    <div class="tabs" role="tablist" aria-label="Pages">
-      <button class="tab" role="tab" id="t-ask" aria-selected="true">Ask Sail-by</button>
-      <button class="tab" role="tab" id="t-area" aria-selected="false">Where I'll live</button>
-      <button class="tab" role="tab" id="t-since" aria-selected="false">Date convicted</button>
-      <button class="tab" role="tab" id="t-curfew" aria-selected="false">Home by curfew</button>
+    <div class="langs" role="group" aria-label="Language / Idioma / Lang">
+      <button type="button" data-lang="en" lang="en">English</button>
+      <button type="button" data-lang="es" lang="es">Español</button>
+      <button type="button" data-lang="ht" lang="ht">Kreyòl</button>
     </div>
   </div>
 </header>
 <div id="data-notice" class="notice" hidden></div>
 
-<!-- ASK -->
-<section id="p-ask" role="tabpanel" aria-labelledby="t-ask">
-  <div class="askwrap">
-    <h1>Ask Sail-by</h1>
-    <p class="lead">Write in your own words. Say where you'll stay, when you were convicted, or where you have to be before curfew. Sail-by looks up the real numbers and answers in plain words. You can ask more questions after.</p>
-    <label for="ask">What do you want to know?</label>
-    <textarea id="ask" rows="3" maxlength="500" placeholder="Example: I'll stay near 1200 SW 8th St. I was convicted in March 2019. What changed?"></textarea>
-    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:.7rem">
-      <button class="primary" id="ask-go" type="button">Ask</button>
-      <select id="ask-lang" aria-label="Language" style="width:auto"><option>English</option><option>Español</option><option>Kreyòl ayisyen</option></select>
-      <button class="plain" id="ask-reset" type="button" hidden>Start a new question</button>
+<!-- LANDING -->
+<section id="p-home" data-i18n-aria="start">
+  <div class="hero">
+    <svg class="map" id="map-bg" aria-hidden="true" preserveAspectRatio="xMidYMid slice"></svg>
+    <div class="hero-in">
+      <h1><span class="sr" id="hero-sr"></span><span class="rot" id="hero-rot" aria-hidden="true"></span></h1>
+      <p class="lead"><span data-i18n="hero_lead"></span></p>
     </div>
-    <div class="examples" id="examples">
-      <button type="button">I'll stay near 1200 SW 8th St. I was convicted in March 2019. What changed?</button>
-      <button type="button">What buses are near 1200 SW 8th St?</button>
-      <button type="button">I finish work at 1 NW 1st Ave at 7:30 pm. Can I get to 1200 SW 8th St before my 9 pm curfew?</button>
+  </div>
+  <div class="options">
+    <button type="button" data-go="ask"><span class="num">01</span><div><b data-i18n="tab_ask"></b><span data-i18n="opt_ask"></span></div></button>
+    <button type="button" data-go="area"><span class="num">02</span><div><b data-i18n="tab_area"></b><span data-i18n="opt_area"></span></div></button>
+    <button type="button" data-go="since"><span class="num">03</span><div><b data-i18n="tab_since"></b><span data-i18n="opt_since"></span></div></button>
+    <button type="button" data-go="curfew"><span class="num">04</span><div><b data-i18n="tab_curfew"></b><span data-i18n="opt_curfew"></span></div></button>
+  </div>
+</section>
+
+<!-- ASK A QUESTION -->
+<section id="p-ask" role="tabpanel" aria-labelledby="t-ask" hidden>
+  <div class="askwrap">
+    <h1 data-i18n="ask_h1"></h1>
+    <p class="lead" data-i18n="ask_lead"></p>
+    <label for="ask" data-i18n="ask_label"></label>
+    <textarea id="ask" rows="3" maxlength="500" data-i18n-ph="ask_ph"></textarea>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:.7rem">
+      <button class="primary" id="ask-go" type="button" data-i18n="ask_btn"></button>
+      <button class="plain" id="ask-reset" type="button" hidden data-i18n="ask_reset"></button>
+    </div>
+    <div id="home-extra">
+      <h2 class="section-h" data-i18n="ex_h"></h2>
+      <div class="examples" id="examples"></div>
+      <p class="hint" style="margin-top:.6rem" data-i18n="ex_hint"></p>
+      <h2 class="section-h" data-i18n="go_h"></h2>
+      <div class="shortcuts">
+        <button type="button" data-go="area"><b data-i18n="tab_area"></b><span data-i18n="sc_area"></span></button>
+        <button type="button" data-go="since"><b data-i18n="tab_since"></b><span data-i18n="sc_since"></span></button>
+        <button type="button" data-go="curfew"><b data-i18n="tab_curfew"></b><span data-i18n="sc_curfew"></span></button>
+      </div>
     </div>
     <div id="thread" aria-live="polite"></div>
   </div>
 </section>
 
-<!-- WHERE I'LL LIVE -->
+<!-- WHAT'S CLOSE BY -->
 <section id="p-area" role="tabpanel" aria-labelledby="t-area" hidden>
+  <div class="pagehead"><div class="pagehead-in">
+    <h1 data-i18n="tab_area"></h1>
+    <p class="lead" data-i18n="area_lead"></p>
+  </div></div>
   <div class="areagrid">
     <div class="form">
-      <h1>Look up a place</h1>
-      <p class="lead">Type the address where you'll stay. You'll see a map, what rent costs, and the buses close by.</p>
       <form id="addr-form" novalidate>
-        <label for="addr" style="margin-top:.4rem">Address where you'll stay</label>
-        <input type="text" id="addr" autocomplete="street-address" placeholder="Example: 1200 SW 8th St, Miami">
-        <div class="label" id="r-label">How far do you want to look?</div>
+        <label for="addr" style="margin-top:0" data-i18n="addr_label"></label>
+        <input type="text" id="addr" autocomplete="street-address" data-i18n-ph="addr_ph">
+        <div class="label" id="r-label" data-i18n="radius_label"></div>
         <div class="seg" id="radius" role="group" aria-labelledby="r-label"></div>
-        <p class="hint" style="margin-top:.3rem">1 mile is about a 20 minute walk.</p>
-        <button class="primary" type="submit" id="addr-go" style="width:100%; margin-top:.8rem">Show me</button>
-        <div class="label" id="a-label">No address yet? Pick a neighborhood.</div>
+        <p class="hint" style="margin-top:.3rem" data-i18n="radius_hint"></p>
+        <button class="primary" type="submit" id="addr-go" style="width:100%; margin-top:.8rem" data-i18n="show_me"></button>
+        <div class="label" id="a-label" data-i18n="pick_area"></div>
         <div class="seg" id="area-pick" role="group" aria-labelledby="a-label"></div>
       </form>
       <div id="area-error" class="error" role="alert" hidden></div>
     </div>
     <div class="results" id="results" aria-live="polite" hidden>
       <p class="hint" id="where" style="margin:1.4rem 0 0"></p>
-      <div class="block" id="c-rent"></div>
-      <div class="block" id="c-prices"></div>
+      <div class="block"><fieldset class="layers" id="layers"></fieldset></div>
+      <div class="block" id="c-places"></div>
       <div class="block" id="c-buses"></div>
-      <button class="plain" type="button" onclick="window.print()">Print this page</button>
+      <p class="hint" data-i18n-html="rent_link"></p>
+      <button class="plain" type="button" onclick="window.print()" data-i18n="print"></button>
     </div>
     <div class="mapcol">
-      <div id="map-ph">Your map will show here.<br>Type an address or pick a neighborhood.</div>
+      <div id="map-ph" data-i18n-html="map_ph"></div>
       <div id="map" hidden></div><div id="map-leaflet" hidden></div>
-      <div id="legend" hidden>The pin is the address. The circle is how far we looked. Gray dots are bus stops. Tap a route number on the left to see where that bus goes.</div>
+      <div id="legend" hidden data-i18n="legend"></div>
     </div>
   </div>
 </section>
 
-<!-- DATE CONVICTED -->
+<!-- WHAT'S CHANGED IN MY AREA -->
 <section id="p-since" role="tabpanel" aria-labelledby="t-since" hidden>
+  <div class="pagehead"><div class="pagehead-in">
+    <h1 data-i18n="tab_since"></h1>
+    <p class="lead" data-i18n="since_lead"></p>
+  </div></div>
   <div class="twocol">
     <div class="left">
-      <h1>What changed since you were convicted?</h1>
-      <p class="lead">Enter the date. A guess is fine.</p>
       <form id="since-form" novalidate>
-        <label for="date">Date convicted</label>
+        <label for="date" style="margin-top:0" data-i18n="date_label"></label>
         <input type="date" id="date" min="1990-01-01">
-        <div class="label" id="s-label">Where will you stay?</div>
+        <div class="label" id="s-label" data-i18n="stay_label"></div>
         <div class="seg" id="since-area" role="group" aria-labelledby="s-label"></div>
         <p class="hint" id="since-hint" style="margin-top:.3rem"></p>
-        <button class="primary" type="submit" id="since-go" style="width:100%; margin-top:.8rem">Show what changed</button>
+        <button class="primary" type="submit" id="since-go" style="width:100%; margin-top:.8rem" data-i18n="since_btn"></button>
       </form>
       <div id="since-error" class="error" role="alert" hidden></div>
     </div>
     <div class="right"><div class="inner" id="since-out" aria-live="polite">
-      <p class="lead">Pick a date and a neighborhood. What changed will show up here.</p>
+      <p class="lead" data-i18n="since_empty"></p>
     </div></div>
   </div>
 </section>
 
 <!-- HOME BY CURFEW -->
 <section id="p-curfew" role="tabpanel" aria-labelledby="t-curfew" hidden>
+  <div class="pagehead"><div class="pagehead-in">
+    <h1 data-i18n="curfew_h1"></h1>
+    <p class="lead" data-i18n="curfew_lead"></p>
+  </div></div>
   <div class="twocol">
     <div class="left">
-      <h1>Can I get home before curfew?</h1>
-      <p class="lead">Tell us where you'll be and when you're done. We'll check the bus and walking.</p>
       <form id="curfew-form" novalidate>
-        <label for="c-from">Where will you be before you go home?</label>
-        <input type="text" id="c-from" placeholder="Example: your work, check-in office, or class">
-        <label for="c-end">What time are you done there?</label>
+        <label for="c-from" style="margin-top:0" data-i18n="c_from"></label>
+        <input type="text" id="c-from" data-i18n-ph="c_from_ph">
+        <label for="c-end" data-i18n="c_end"></label>
         <input type="time" id="c-end">
-        <label for="c-home">Where do you sleep?</label>
-        <input type="text" id="c-home" placeholder="Example: 1200 SW 8th St, Miami">
-        <label for="c-time">What time is your curfew?</label>
+        <label for="c-home" data-i18n="c_home"></label>
+        <input type="text" id="c-home" data-i18n-ph="addr_ph">
+        <label for="c-time" data-i18n="c_time"></label>
         <input type="time" id="c-time">
-        <button class="primary" type="submit" id="c-go" style="width:100%; margin-top:1.1rem">Can I make it home?</button>
+        <button class="primary" type="submit" id="c-go" style="width:100%; margin-top:1.1rem" data-i18n="c_btn"></button>
       </form>
       <div id="c-error" class="error" role="alert" hidden></div>
     </div>
     <div class="right"><div class="inner" id="c-out" aria-live="polite">
-      <p class="lead">Fill in the four boxes. Your answer will show up here.</p>
+      <p class="lead" data-i18n="c_empty"></p>
     </div></div>
   </div>
 </section>
 
-<footer class="legal"><style>.legal{max-width:1100px;margin:0 auto;padding:18px 20px 28px;font-size:.8rem;line-height:1.5;color:#12303A;opacity:.78;border-top:1px solid #D4DDE0}@media print{.legal{display:none}}</style>
-<p>Sail-by doesn't ask for your name, and it doesn't save your address, dates, or questions in a database. Please don't type your name or case numbers. This is not legal advice.</p></footer>
+<footer class="legal">
+<p data-i18n="footer"></p>
+<p><a href="/privacy" data-i18n="privacy"></a> &nbsp;·&nbsp; <a href="/terms" data-i18n="terms"></a></p></footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 "use strict";
+/* ---------- words in three languages ----------
+   Spanish (es) and Haitian Creole (ht) should be checked by a native speaker before launch.
+   Text from the data files is translated in data/translations.json. */
+const STR = {
+  en: {
+    nav: "Pages", start: "Start here",
+    tab_ask: "Ask a question", tab_ask_s: "Ask", tab_area: "What's close by?", tab_area_s: "Close by",
+    tab_since: "What's changed in my area?", tab_since_s: "What's changed", tab_curfew: "Home by curfew", tab_curfew_s: "Curfew",
+    hero_lead: "Find help nearby, see what's changed since you went in, and plan your way home. Free, and no sign-up.",
+    opt_ask: "Type anything. We'll look it up for you.", opt_area: "Hospitals, libraries, food help, and buses near you.",
+    opt_since: "Rent, prices, and new rules since you went in.", opt_curfew: "Check if you can get home in time.",
+    ask_h1: "Have a question?", ask_lead: "Type it in the box below. We'll look it up and answer in plain words.",
+    ask_label: "Your question", ask_ph: "Where is the nearest hospital to 1200 SW 8th St?", ask_btn: "Ask", ask_working: "Working...",
+    ask_reset: "Start a new question", ex_h: "For example", blank: "[your address]",
+    examples: ["Where is the nearest library to {b}?", "Where is the nearest hospital to {b}?", "Where can I get free food near {b}?",
+               "Which bus goes to the nearest consulate from {b}?", "Where is the closest post office to {b}?"],
+    ex_hint: "Tap one, then type your address where it says [your address]. Example address: 1200 SW 8th St, Miami.",
+    go_h: "Or go straight to", sc_area: "Map, places nearby, buses", sc_since: "Rent, prices, new rules", sc_curfew: "Can you make it home in time",
+    looking_ai: "Looking things up. This can take up to 30 seconds.", checked: "What we checked:",
+    act_map: "See the map and buses", act_map_places: "See it on the map", act_since: "See what changed", act_curfew: "See the curfew check",
+    followup: "You can ask a follow-up in the box above.",
+    area_lead: "Hospitals, libraries, food help, and buses near where you'll stay.",
+    addr_label: "Address where you'll stay", addr_ph: "Example: 1200 SW 8th St, Miami", radius_label: "How far do you want to look?",
+    mi: { 0.5: "Half a mile", 1: "1 mile", 2: "2 miles" }, radius_hint: "1 mile is about a 20 minute walk.",
+    show_me: "Show me", looking: "Looking...", pick_area: "No address yet? Pick a neighborhood.",
+    need_addr: "Type an address first, or pick a neighborhood below.", looking_up: "Looking it up...",
+    showing: "Showing <strong>{p}</strong>", showing_in: ", in <strong>{a}</strong>.", showing_out: ". This is outside Little Havana, Downtown, and Overtown.",
+    middle: "{a} (the middle of the neighborhood)",
+    rent_link: "Want to know how rent and prices changed here? <a href=\"#since\" data-go-link=\"since\">See what's changed in your area</a>.",
+    print: "Print this page", map_ph: "Your map will show here.<br>Type an address or pick a neighborhood.",
+    legend: "The pin is the address. The dashed circle is how far we looked. White dots are bus stops. Tap a route number to see where that bus goes.",
+    the_address: "The address", bus_stop: "bus stop", street_map: "Street map", satellite: "Satellite photo",
+    show_on_map: "Show on the map", stops: "Bus stops",
+    kinds: { hospital: "Hospitals", clinic: "Clinics", pharmacy: "Pharmacies", library: "Libraries", food: "Food help and shelters",
+             government: "Government offices", court: "Courthouses", police: "Police", post: "Post offices", consulate: "Consulates and embassies" },
+    one: { hospital: "Closest hospital", clinic: "Closest clinic", pharmacy: "Closest pharmacy", library: "Closest library", food: "Closest food help or shelter",
+           government: "Closest government office", court: "Closest courthouse", police: "Closest police station", post: "Closest post office", consulate: "Closest consulate or embassy" },
+    closest: "Closest places", turn_on: "Turn on a place above, like Hospitals, to see the closest one.",
+    walk_min: "About a {n} minute walk.", take_bus: "Take bus <strong>{r}</strong> from {a}. Get off near {b}.",
+    no_one_bus: "No single bus goes there from here. You may need to transfer.", mi_away: "{n} mi away", also: "Also close:",
+    places_note: "Places come from a public map anyone can edit. Call ahead before you go.",
+    missing: "{w} isn't loaded yet.", missing_hint: "Run <code>python scripts/update_all_data.py</code>, then restart the app.",
+    w_places: "Places data", w_bus: "Bus data",
+    buses_h: "Buses and trains near you", buses_within: "Buses and trains within {m}", no_stops_close: "No bus or train stops are this close. Try a bigger distance.",
+    tap_route: "Tap a route number to see where it goes on the map.",
+    groups: { local: ["Local buses", "Run all day, most days."], rail: ["Metrorail and Metromover", "Trains and the free downtown loop."],
+              express: ["Express and rush-hour buses", "Fewer trips, mostly weekday mornings and afternoons."], night: ["Overnight buses", "Run when the others don't."] },
+    show_more: "Show {n} more", closest_stop: "Closest stop is {n} mi away", changed: "Changed:", route_n: "Route {r}", show_route: "Show route {r} on the map",
+    gone_h: "Buses that no longer run here",
+    bus_src: "Routes and stops: <a href=\"{a}\" target=\"_blank\" rel=\"noopener\">Miami-Dade Transit</a>. Changes come from the county's <a href=\"{b}\" target=\"_blank\" rel=\"noopener\">route guide</a> for the big bus change of Nov. 13, 2023. Before you ride, check the GO Miami-Dade Transit app or call 311.",
+    since_lead: "Enter the date you were convicted. A guess is fine. We'll show rent, prices, and new rules since then.",
+    date_label: "Date convicted", stay_label: "Where will you stay?", hint_filled: "We filled this in from your address. You can change it.",
+    hint_pick: "Not sure? Pick the closest one.", since_btn: "Show what changed",
+    need_date: "Pick the date you were convicted.", need_stay: "Pick where you'll stay.",
+    since_empty: "Pick a date and a neighborhood. What changed will show up here.",
+    years: "It's been about {n} years since {d}.", f_rent: "Rent here is up {m} a month.", f_prices: "Prices overall are up {p}%.",
+    f_wage: "Minimum wage is {m} an hour.", f_area: "Numbers are for {a} and nearby.",
+    timeline: "Timeline", table: "Table", show_how: "How to show the results",
+    tl_hint: "New rules and services, year by year. Switch to Table for rent, prices, and wages.", tb_hint: "Rent, prices, and minimum wage then vs. now.",
+    new_h: "New things to know", nothing_new: "Nothing new on our list since that date.", todo: "What to do:", source: "Source:", still_h: "Still good to know",
+    th_what: "What", th_then: "Then", th_now: "Now", th_change: "Change",
+    r_wage: "Minimum wage", r_wage_s: "Florida, per hour", under: "under $8.46",
+    r_rent: "Rent", r_rent_s: "ZIP code {z}, per month, {a} vs {b}", r_cpi: "Prices overall", r_cpi_s: "Miami area. What $100 bought then",
+    no_money: "We don't have money numbers loaded yet.", rent_from: "Rent from {a} to {b}",
+    rent_clamped: "Our rent numbers only go back to {y}.", prices_clamped: "Some price numbers don't go back that far, so we used the oldest we have.",
+    wage_src: "Florida minimum wage", spark_label: "Rent over time, going from {a} to {b}",
+    curfew_h1: "Can I get home before curfew?", curfew_lead: "Tell us where you'll be and when you're done. We'll check the bus and walking.",
+    c_from: "Where will you be before you go home?", c_from_ph: "Example: your work, check-in office, or class",
+    c_end: "What time are you done there?", c_home: "Where do you sleep?", c_time: "What time is your curfew?", c_btn: "Can I make it home?", checking: "Checking...",
+    need_both: "Fill in both addresses.", need_times: "Pick both times from the clock.", c_empty: "Fill in the four boxes. Your answer will show up here.",
+    how_h: "How you'd do it", walking_h: "Walking", todo_h: "What to do",
+    footer: "Sail-by doesn't ask for your name, and it doesn't save your address, dates, or questions. Please don't type your name or case numbers. This is not legal advice.",
+    privacy: "Privacy", terms: "Terms", not_loaded: "Some data isn't loaded yet:", oops: "Something went wrong. Try again.", loading: "Loading",
+    months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+  },
+  es: {
+    nav: "Páginas", start: "Empieza aquí",
+    tab_ask: "Haz una pregunta", tab_ask_s: "Preguntar", tab_area: "¿Qué hay cerca?", tab_area_s: "Cerca",
+    tab_since: "¿Qué cambió en mi zona?", tab_since_s: "Qué cambió", tab_curfew: "A casa antes del toque de queda", tab_curfew_s: "Toque de queda",
+    hero_lead: "Encuentra ayuda cerca, mira qué cambió desde que entraste y planea cómo llegar a casa. Gratis y sin registrarte.",
+    opt_ask: "Escribe lo que sea. Nosotros lo buscamos.", opt_area: "Hospitales, bibliotecas, ayuda con comida y buses cerca de ti.",
+    opt_since: "Alquiler, precios y reglas nuevas desde que entraste.", opt_curfew: "Revisa si puedes llegar a casa a tiempo.",
+    ask_h1: "¿Tienes una pregunta?", ask_lead: "Escríbela en el cuadro de abajo. La buscamos y te contestamos con palabras sencillas.",
+    ask_label: "Tu pregunta", ask_ph: "¿Dónde está el hospital más cercano a 1200 SW 8th St?", ask_btn: "Preguntar", ask_working: "Buscando...",
+    ask_reset: "Empezar una pregunta nueva", ex_h: "Por ejemplo", blank: "[tu dirección]",
+    examples: ["¿Dónde está la biblioteca más cercana a {b}?", "¿Dónde está el hospital más cercano a {b}?", "¿Dónde puedo conseguir comida gratis cerca de {b}?",
+               "¿Qué bus va al consulado más cercano desde {b}?", "¿Dónde está la oficina de correos más cercana a {b}?"],
+    ex_hint: "Toca uno y escribe tu dirección donde dice [tu dirección]. Dirección de ejemplo: 1200 SW 8th St, Miami.",
+    go_h: "O ve directo a", sc_area: "Mapa, lugares cercanos, buses", sc_since: "Alquiler, precios, reglas nuevas", sc_curfew: "¿Puedes llegar a casa a tiempo?",
+    looking_ai: "Buscando. Esto puede tardar hasta 30 segundos.", checked: "Lo que revisamos:",
+    act_map: "Ver el mapa y los buses", act_map_places: "Verlo en el mapa", act_since: "Ver qué cambió", act_curfew: "Ver el cálculo del toque de queda",
+    followup: "Puedes hacer otra pregunta en el cuadro de arriba.",
+    area_lead: "Hospitales, bibliotecas, ayuda con comida y buses cerca de donde te vas a quedar.",
+    addr_label: "Dirección donde te vas a quedar", addr_ph: "Ejemplo: 1200 SW 8th St, Miami", radius_label: "¿Qué tan lejos quieres buscar?",
+    mi: { 0.5: "Media milla", 1: "1 milla", 2: "2 millas" }, radius_hint: "1 milla es como 20 minutos caminando.",
+    show_me: "Mostrar", looking: "Buscando...", pick_area: "¿Todavía no tienes dirección? Elige un barrio.",
+    need_addr: "Primero escribe una dirección, o elige un barrio abajo.", looking_up: "Buscando...",
+    showing: "Mostrando <strong>{p}</strong>", showing_in: ", en <strong>{a}</strong>.", showing_out: ". Esto queda fuera de Little Havana, Downtown y Overtown.",
+    middle: "{a} (el centro del barrio)",
+    rent_link: "¿Quieres saber cómo cambiaron el alquiler y los precios aquí? <a href=\"#since\" data-go-link=\"since\">Mira qué cambió en tu zona</a>.",
+    print: "Imprimir esta página", map_ph: "Tu mapa aparecerá aquí.<br>Escribe una dirección o elige un barrio.",
+    legend: "El marcador es la dirección. El círculo punteado es hasta dónde buscamos. Los puntos blancos son paradas de bus. Toca un número de ruta para ver por dónde va ese bus.",
+    the_address: "La dirección", bus_stop: "parada de bus", street_map: "Mapa de calles", satellite: "Foto de satélite",
+    show_on_map: "Mostrar en el mapa", stops: "Paradas de bus",
+    kinds: { hospital: "Hospitales", clinic: "Clínicas", pharmacy: "Farmacias", library: "Bibliotecas", food: "Ayuda con comida y refugios",
+             government: "Oficinas del gobierno", court: "Tribunales", police: "Policía", post: "Oficinas de correos", consulate: "Consulados y embajadas" },
+    one: { hospital: "Hospital más cercano", clinic: "Clínica más cercana", pharmacy: "Farmacia más cercana", library: "Biblioteca más cercana", food: "Ayuda con comida o refugio más cercano",
+           government: "Oficina del gobierno más cercana", court: "Tribunal más cercano", police: "Estación de policía más cercana", post: "Oficina de correos más cercana", consulate: "Consulado o embajada más cercana" },
+    closest: "Lugares más cercanos", turn_on: "Activa un lugar arriba, como Hospitales, para ver el más cercano.",
+    walk_min: "Como {n} minutos caminando.", take_bus: "Toma el bus <strong>{r}</strong> en {a}. Bájate cerca de {b}.",
+    no_one_bus: "No hay un solo bus que vaya desde aquí. Puede que tengas que hacer trasbordo.", mi_away: "a {n} mi", also: "También cerca:",
+    places_note: "Los lugares vienen de un mapa público que cualquiera puede editar. Llama antes de ir.",
+    missing: "Los {w} todavía no están cargados.", missing_hint: "Corre <code>python scripts/update_all_data.py</code> y reinicia la aplicación.",
+    w_places: "datos de lugares", w_bus: "datos de buses",
+    buses_h: "Buses y trenes cerca de ti", buses_within: "Buses y trenes a {m}", no_stops_close: "No hay paradas de bus ni de tren tan cerca. Prueba una distancia más grande.",
+    tap_route: "Toca un número de ruta para ver por dónde va en el mapa.",
+    groups: { local: ["Buses locales", "Pasan todo el día, casi todos los días."], rail: ["Metrorail y Metromover", "Trenes y el circuito gratis del centro."],
+              express: ["Buses expresos y de hora pico", "Menos viajes, sobre todo en las mañanas y tardes entre semana."], night: ["Buses de madrugada", "Pasan cuando los otros no."] },
+    show_more: "Mostrar {n} más", closest_stop: "La parada más cercana está a {n} mi", changed: "Cambió:", route_n: "Ruta {r}", show_route: "Mostrar la ruta {r} en el mapa",
+    gone_h: "Buses que ya no pasan por aquí",
+    bus_src: "Rutas y paradas: <a href=\"{a}\" target=\"_blank\" rel=\"noopener\">Miami-Dade Transit</a>. Los cambios vienen de la <a href=\"{b}\" target=\"_blank\" rel=\"noopener\">guía de rutas</a> del condado para el gran cambio de buses del 13 de noviembre de 2023. Antes de viajar, revisa la aplicación GO Miami-Dade Transit o llama al 311.",
+    since_lead: "Escribe la fecha de tu condena. Si no la sabes exacta, está bien. Te mostramos el alquiler, los precios y las reglas nuevas desde entonces.",
+    date_label: "Fecha de la condena", stay_label: "¿Dónde te vas a quedar?", hint_filled: "Lo llenamos con tu dirección. Puedes cambiarlo.",
+    hint_pick: "¿No estás seguro? Elige el más cercano.", since_btn: "Ver qué cambió",
+    need_date: "Elige la fecha de tu condena.", need_stay: "Elige dónde te vas a quedar.",
+    since_empty: "Elige una fecha y un barrio. Lo que cambió aparecerá aquí.",
+    years: "Han pasado unos {n} años desde el {d}.", f_rent: "El alquiler aquí subió {m} al mes.", f_prices: "Los precios en general subieron {p}%.",
+    f_wage: "El salario mínimo es {m} la hora.", f_area: "Los números son de {a} y sus alrededores.",
+    timeline: "Línea de tiempo", table: "Tabla", show_how: "Cómo mostrar los resultados",
+    tl_hint: "Reglas y servicios nuevos, año por año. Cambia a Tabla para ver alquiler, precios y salarios.", tb_hint: "Alquiler, precios y salario mínimo antes y ahora.",
+    new_h: "Cosas nuevas que debes saber", nothing_new: "No hay nada nuevo en nuestra lista desde esa fecha.", todo: "Qué hacer:", source: "Fuente:", still_h: "Bueno saber todavía",
+    th_what: "Qué", th_then: "Antes", th_now: "Ahora", th_change: "Cambio",
+    r_wage: "Salario mínimo", r_wage_s: "Florida, por hora", under: "menos de $8.46",
+    r_rent: "Alquiler", r_rent_s: "Código postal {z}, al mes, {a} vs {b}", r_cpi: "Precios en general", r_cpi_s: "Área de Miami. Lo que $100 compraban antes",
+    no_money: "Todavía no tenemos cargados los números de dinero.", rent_from: "Alquiler de {a} a {b}",
+    rent_clamped: "Nuestros números de alquiler solo llegan hasta {y}.", prices_clamped: "Algunos precios no llegan tan atrás, así que usamos los más viejos que tenemos.",
+    wage_src: "Salario mínimo de Florida", spark_label: "Alquiler a lo largo del tiempo, de {a} a {b}",
+    curfew_h1: "¿Puedo llegar a casa antes del toque de queda?", curfew_lead: "Dinos dónde vas a estar y a qué hora terminas. Revisamos el bus y caminando.",
+    c_from: "¿Dónde vas a estar antes de ir a casa?", c_from_ph: "Ejemplo: tu trabajo, la oficina donde te reportas o tu clase",
+    c_end: "¿A qué hora terminas ahí?", c_home: "¿Dónde duermes?", c_time: "¿A qué hora es tu toque de queda?", c_btn: "¿Puedo llegar a casa?", checking: "Revisando...",
+    need_both: "Escribe las dos direcciones.", need_times: "Elige las dos horas en el reloj.", c_empty: "Llena los cuatro cuadros. Tu respuesta aparecerá aquí.",
+    how_h: "Cómo lo harías", walking_h: "Caminando", todo_h: "Qué hacer",
+    footer: "Sail-by no te pide tu nombre y no guarda tu dirección, fechas ni preguntas. Por favor no escribas tu nombre ni números de caso. Esto no es consejo legal.",
+    privacy: "Privacidad", terms: "Términos", not_loaded: "Algunos datos todavía no están cargados:", oops: "Algo salió mal. Inténtalo otra vez.", loading: "Cargando",
+    months: ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+  },
+  ht: {
+    nav: "Paj yo", start: "Kòmanse isit la",
+    tab_ask: "Poze yon kesyon", tab_ask_s: "Kesyon", tab_area: "Sa ki toupre?", tab_area_s: "Toupre",
+    tab_since: "Sa ki chanje nan zòn mwen?", tab_since_s: "Sa ki chanje", tab_curfew: "Lakay anvan kouvrefe", tab_curfew_s: "Kouvrefe",
+    hero_lead: "Jwenn èd toupre ou, gade sa ki chanje depi ou te antre, epi planifye wout ou pou rive lakay. Gratis, epi ou pa bezwen enskri.",
+    opt_ask: "Ekri nenpòt bagay. N ap chèche l pou ou.", opt_area: "Lopital, bibliyotèk, èd manje, ak bis toupre ou.",
+    opt_since: "Lwaye, pri, ak nouvo règ depi ou te antre.", opt_curfew: "Tcheke si ou ka rive lakay alè.",
+    ask_h1: "Ou gen yon kesyon?", ask_lead: "Ekri l nan bwat ki anba a. N ap chèche l epi n ap reponn ou ak mo ki senp.",
+    ask_label: "Kesyon ou", ask_ph: "Ki kote lopital ki pi pre 1200 SW 8th St la ye?", ask_btn: "Mande", ask_working: "N ap chèche...",
+    ask_reset: "Kòmanse yon nouvo kesyon", ex_h: "Pa egzanp", blank: "[adrès ou]",
+    examples: ["Ki kote bibliyotèk ki pi pre {b} la ye?", "Ki kote lopital ki pi pre {b} la ye?", "Ki kote mwen ka jwenn manje gratis toupre {b}?",
+               "Ki bis ki ale nan konsila ki pi pre a soti {b}?", "Ki kote biwo lapòs ki pi pre {b} la ye?"],
+    ex_hint: "Peze youn, epi ekri adrès ou kote li di [adrès ou]. Egzanp adrès: 1200 SW 8th St, Miami.",
+    go_h: "Oswa ale dirèkteman nan", sc_area: "Kat, kote ki toupre, bis", sc_since: "Lwaye, pri, nouvo règ", sc_curfew: "Èske ou ka rive lakay alè",
+    looking_ai: "N ap chèche. Sa ka pran jiska 30 segonn.", checked: "Sa nou tcheke:",
+    act_map: "Gade kat la ak bis yo", act_map_places: "Gade l sou kat la", act_since: "Gade sa ki chanje", act_curfew: "Gade kalkil kouvrefe a",
+    followup: "Ou ka poze yon lòt kesyon nan bwat ki anwo a.",
+    area_lead: "Lopital, bibliyotèk, èd manje, ak bis toupre kote ou pral rete a.",
+    addr_label: "Adrès kote ou pral rete", addr_ph: "Egzanp: 1200 SW 8th St, Miami", radius_label: "Ki distans ou vle gade?",
+    mi: { 0.5: "Mwatye mil", 1: "1 mil", 2: "2 mil" }, radius_hint: "1 mil se anviwon 20 minit a pye.",
+    show_me: "Montre m", looking: "N ap chèche...", pick_area: "Ou poko gen adrès? Chwazi yon katye.",
+    need_addr: "Ekri yon adrès anvan, oswa chwazi yon katye anba a.", looking_up: "N ap chèche...",
+    showing: "N ap montre <strong>{p}</strong>", showing_in: ", nan <strong>{a}</strong>.", showing_out: ". Kote sa a deyò Little Havana, Downtown, ak Overtown.",
+    middle: "{a} (mitan katye a)",
+    rent_link: "Ou vle konnen kijan lwaye ak pri chanje isit la? <a href=\"#since\" data-go-link=\"since\">Gade sa ki chanje nan zòn ou</a>.",
+    print: "Enprime paj sa a", map_ph: "Kat ou a ap parèt isit la.<br>Ekri yon adrès oswa chwazi yon katye.",
+    legend: "Mak la se adrès la. Sèk an pwentiye a montre jiska ki distans nou gade. Pwen blan yo se arè bis. Peze yon nimewo wout pou wè ki kote bis sa a ale.",
+    the_address: "Adrès la", bus_stop: "arè bis", street_map: "Kat lari", satellite: "Foto satelit",
+    show_on_map: "Montre sou kat la", stops: "Arè bis",
+    kinds: { hospital: "Lopital", clinic: "Klinik", pharmacy: "Famasi", library: "Bibliyotèk", food: "Èd manje ak abri",
+             government: "Biwo gouvènman", court: "Tribinal", police: "Polis", post: "Biwo lapòs", consulate: "Konsila ak anbasad" },
+    one: { hospital: "Lopital ki pi pre a", clinic: "Klinik ki pi pre a", pharmacy: "Famasi ki pi pre a", library: "Bibliyotèk ki pi pre a", food: "Èd manje oswa abri ki pi pre a",
+           government: "Biwo gouvènman ki pi pre a", court: "Tribinal ki pi pre a", police: "Estasyon polis ki pi pre a", post: "Biwo lapòs ki pi pre a", consulate: "Konsila oswa anbasad ki pi pre a" },
+    closest: "Kote ki pi pre yo", turn_on: "Limen yon kote anwo a, tankou Lopital, pou wè sa ki pi pre a.",
+    walk_min: "Anviwon {n} minit a pye.", take_bus: "Pran bis <strong>{r}</strong> nan {a}. Desann toupre {b}.",
+    no_one_bus: "Pa gen yon sèl bis ki ale la soti isit la. Ou ka bezwen chanje bis.", mi_away: "a {n} mil", also: "Toupre tou:",
+    places_note: "Kote yo soti nan yon kat piblik tout moun ka modifye. Rele anvan ou ale.",
+    missing: "{w} poko chaje.", missing_hint: "Kouri <code>python scripts/update_all_data.py</code>, epi relanse aplikasyon an.",
+    w_places: "Done kote yo", w_bus: "Done bis yo",
+    buses_h: "Bis ak tren toupre ou", buses_within: "Bis ak tren nan {m}", no_stops_close: "Pa gen arè bis oswa tren ki pre konsa. Eseye yon pi gwo distans.",
+    tap_route: "Peze yon nimewo wout pou wè ki kote li ale sou kat la.",
+    groups: { local: ["Bis lokal", "Yo pase tout lajounen, prèske chak jou."], rail: ["Metrorail ak Metromover", "Tren ak sikui gratis anba lavil la."],
+              express: ["Bis ekspres ak bis lè trafik", "Mwens vwayaj, sitou maten ak apremidi lasemèn."], night: ["Bis lannwit", "Yo pase lè lòt yo pa pase."] },
+    show_more: "Montre {n} ankò", closest_stop: "Arè ki pi pre a a {n} mil", changed: "Chanjman:", route_n: "Wout {r}", show_route: "Montre wout {r} sou kat la",
+    gone_h: "Bis ki pa pase isit la ankò",
+    bus_src: "Wout ak arè: <a href=\"{a}\" target=\"_blank\" rel=\"noopener\">Miami-Dade Transit</a>. Chanjman yo soti nan <a href=\"{b}\" target=\"_blank\" rel=\"noopener\">gid wout</a> konte a pou gwo chanjman bis 13 novanm 2023 la. Anvan ou monte, tcheke aplikasyon GO Miami-Dade Transit la oswa rele 311.",
+    since_lead: "Antre dat yo te kondane ou. Si ou pa sèten, sa pa fè anyen. N ap montre ou lwaye, pri, ak nouvo règ depi lè sa a.",
+    date_label: "Dat kondanasyon", stay_label: "Ki kote ou pral rete?", hint_filled: "Nou ranpli sa a ak adrès ou. Ou ka chanje l.",
+    hint_pick: "Ou pa sèten? Chwazi sa ki pi pre a.", since_btn: "Montre sa ki chanje",
+    need_date: "Chwazi dat yo te kondane ou.", need_stay: "Chwazi ki kote ou pral rete.",
+    since_empty: "Chwazi yon dat ak yon katye. Sa ki chanje ap parèt isit la.",
+    years: "Sa fè anviwon {n} an depi {d}.", f_rent: "Lwaye isit la monte {m} pa mwa.", f_prices: "Pri an jeneral monte {p}%.",
+    f_wage: "Salè minimòm nan se {m} lè a.", f_area: "Chif yo se pou {a} ak zòn toupre a.",
+    timeline: "Liy tan", table: "Tablo", show_how: "Kijan pou montre rezilta yo",
+    tl_hint: "Nouvo règ ak sèvis, ane pa ane. Chanje pou Tablo pou wè lwaye, pri, ak salè.", tb_hint: "Lwaye, pri, ak salè minimòm avan ak kounye a.",
+    new_h: "Nouvo bagay pou konnen", nothing_new: "Pa gen anyen nouvo sou lis nou an depi dat sa a.", todo: "Sa pou fè:", source: "Sous:", still_h: "Toujou bon pou konnen",
+    th_what: "Kisa", th_then: "Avan", th_now: "Kounye a", th_change: "Chanjman",
+    r_wage: "Salè minimòm", r_wage_s: "Florid, pa lè", under: "mwens pase $8.46",
+    r_rent: "Lwaye", r_rent_s: "Kòd postal {z}, pa mwa, {a} kont {b}", r_cpi: "Pri an jeneral", r_cpi_s: "Zòn Miami. Sa $100 te konn achte",
+    no_money: "Nou poko gen chif lajan yo chaje.", rent_from: "Lwaye soti {a} rive {b}",
+    rent_clamped: "Chif lwaye nou yo kòmanse sèlman an {y}.", prices_clamped: "Kèk pri pa ale osi lwen, kidonk nou itilize pi ansyen nou genyen yo.",
+    wage_src: "Salè minimòm Florid", spark_label: "Lwaye atravè tan, soti {a} rive {b}",
+    curfew_h1: "Èske mwen ka rive lakay anvan kouvrefe?", curfew_lead: "Di nou ki kote ou pral ye ak ki lè ou fini. N ap tcheke bis la ak mache a pye.",
+    c_from: "Ki kote ou pral ye anvan ou ale lakay?", c_from_ph: "Egzanp: travay ou, biwo kote ou rapòte, oswa klas ou",
+    c_end: "Ki lè ou fini la?", c_home: "Ki kote ou dòmi?", c_time: "Ki lè kouvrefe ou ye?", c_btn: "Èske mwen ka rive lakay?", checking: "N ap tcheke...",
+    need_both: "Ranpli de adrès yo.", need_times: "Chwazi de lè yo nan revèy la.", c_empty: "Ranpli kat bwat yo. Repons ou ap parèt isit la.",
+    how_h: "Kijan ou ta fè l", walking_h: "A pye", todo_h: "Sa pou fè",
+    footer: "Sail-by pa mande non ou, epi li pa kenbe adrès ou, dat ou, ni kesyon ou. Tanpri pa ekri non ou ni nimewo dosye ou. Sa a se pa konsèy legal.",
+    privacy: "Vi prive", terms: "Kondisyon", not_loaded: "Kèk done poko chaje:", oops: "Gen yon bagay ki pa mache. Eseye ankò.", loading: "N ap chaje",
+    months: ["janvye", "fevriye", "mas", "avril", "me", "jen", "jiyè", "out", "septanm", "oktòb", "novanm", "desanm"],
+  },
+};
+const HERO = { en: ["Back in Miami?", "Start here."], es: ["¿De vuelta en Miami?", "Empieza aquí."], ht: ["Ou tounen Miami?", "Kòmanse isit la."] };
+const LANG_NAME = { en: "English", es: "Español", ht: "Kreyòl ayisyen" };
+
+let LANG = "en";
+try { const s = localStorage.getItem("sailby-lang"); if (STR[s]) LANG = s; } catch (e) { /* storage blocked: use English */ }
 const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function t(key, vars) {
+  let s = STR[LANG][key] ?? STR.en[key] ?? key;
+  if (vars && typeof s === "string") s = s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+  return s;
+}
+// text from the data files and server errors: look it up, or show the English
+function tr(s) { const m = state.cfg && state.cfg.translations && state.cfg.translations[LANG]; return (m && m[s]) || s; }
 const money = (n) => "$" + Math.round(n).toLocaleString("en-US");
 const money2 = (n) => "$" + n.toFixed(2);
-const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const MILES = { 0.5: "Half a mile", 1: "1 mile", 2: "2 miles" };
-const TABS = ["ask", "area", "since", "curfew"];
-const state = { cfg: null, radius: 1, place: null, areaId: "", zip: "", sinceArea: "", sinceDate: "" };
+const TABS = ["home", "ask", "area", "since", "curfew"];
+const NAV = TABS.slice(1);   // the ones with a tab button
+const INK = "#12303A", BLUE = "#1D5FD1";
+const LETTER = { hospital: "H", clinic: "C", pharmacy: "Rx", library: "L", food: "F", government: "G", court: "Ct", police: "P", post: "PO", consulate: "E" };
+const state = { cfg: null, radius: 1, place: null, areaId: "", zip: "", sinceArea: "", sinceDate: "",
+                layers: new Set(["stops", "hospital", "library"]), places: null, lastArea: null, sinceView: "timeline", sinceLast: null, lastCurfew: null, tab: "home" };
 
 async function api(path, opts) {
   const r = await fetch(path, opts);
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : "Something went wrong. Try again.");
+  if (!r.ok) throw new Error(typeof j.detail === "string" ? tr(j.detail) : t("oops"));
   return j;
 }
 function showError(id, msg) { const e = $(id); e.textContent = msg || ""; e.hidden = !msg; }
-function fmtDate(iso) { return new Date(iso + "T12:00:00").toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }); }
-function monthName(ym) { const [y, m] = ym.split("-"); return new Date(+y, +m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" }); }
-function srcLine(label, url) { return `<p class="src">Source: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(label)}</a></p>`; }
+function fmtDate(iso) {
+  const [y, m, d] = iso.split("-").map(Number), name = t("months")[m - 1];
+  return LANG === "en" ? `${name} ${d}, ${y}` : LANG === "es" ? `${d} de ${name} de ${y}` : `${d} ${name} ${y}`;
+}
+function shortDate(iso) {
+  const [, m, d] = iso.split("-").map(Number), name = t("months")[m - 1].slice(0, 3);
+  return LANG === "en" ? `${name} ${d}` : `${d} ${name}`;
+}
+function srcLine(label, url) { return `<p class="src">${t("source")} <a href="${esc(url)}" target="_blank" rel="noopener">${esc(label)}</a></p>`; }
+function skel(lines = 4) {
+  const widths = [92, 78, 85, 60, 88, 70];
+  return `<span class="sr">${esc(t("loading"))}</span><div aria-hidden="true"><span class="skel big" style="width:70%"></span>` +
+    Array.from({ length: lines }, (_, i) => `<span class="skel" style="width:${widths[i % widths.length]}%"></span>`).join("") + `</div>`;
+}
+function pinHtml(kind) { return kind === "stops" ? `<span class="pin stop" aria-hidden="true"></span>` : `<span class="pin" aria-hidden="true">${esc(LETTER[kind] || "?")}</span>`; }
 
-/* tabs */
-function openTab(which) {
-  for (const t of TABS) { $("#t-" + t).setAttribute("aria-selected", String(t === which)); $("#p-" + t).hidden = t !== which; }
+/* ---------- language ---------- */
+function applyStatic() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
+  document.querySelectorAll("[data-i18n-html]").forEach((el) => (el.innerHTML = t(el.dataset.i18nHtml)));
+  document.querySelectorAll("[data-i18n-ph]").forEach((el) => (el.placeholder = t(el.dataset.i18nPh)));
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => el.setAttribute("aria-label", t(el.dataset.i18nAria)));
+  document.querySelectorAll("[data-lang]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === LANG)));
+  document.querySelectorAll("[data-go-link]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openTab(a.dataset.goLink); }));
+  $("#examples").innerHTML = t("examples").map((s) => `<button type="button">${esc(s).replace("{b}", `<mark>${esc(t("blank"))}</mark>`)}</button>`).join("");
+  document.querySelectorAll("#examples button").forEach((b) => (b.onclick = () => { $("#ask").value = b.textContent; $("#ask").focus(); selectBlank(); }));
+  $("#hero-sr").textContent = HERO[LANG].join(" ");
+  $("#ask-go").textContent = $("#ask-go").disabled ? t("ask_working") : t("ask_btn");
+}
+function setLang(l) {
+  if (!STR[l] || l === LANG) return;
+  LANG = l;
+  try { localStorage.setItem("sailby-lang", l); } catch (e) { /* not saved, still works */ }
+  applyStatic();
+  Hero.restart();
+  if (state.cfg) buildSegments();
+  if (state.lastArea) renderArea(state.lastArea, false);
+  if (state.sinceLast) renderSince(state.sinceLast.f, state.sinceLast.zip);
+  if (state.lastCurfew) runCurfew(state.lastCurfew).catch(() => {});
+  syncSinceArea();
+}
+document.querySelectorAll("[data-lang]").forEach((b) => (b.onclick = () => setLang(b.dataset.lang)));
+
+/* landing headline: rotates English, Spanish, Kreyòl. Screen readers get one fixed line (#hero-sr). */
+const Hero = {
+  timer: null, i: 0,
+  build() {
+    const order = [LANG, ...["en", "es", "ht"].filter((l) => l !== LANG)];
+    $("#hero-rot").innerHTML = order.map((l, i) =>
+      `<span lang="${l}" class="${i === 0 ? "on" : ""}"><span class="bgtext">${esc(HERO[l][0])}</span><br><span class="bgtext accent">${esc(HERO[l][1])}</span></span>`).join("");
+    this.i = 0;
+  },
+  restart() {
+    clearInterval(this.timer); this.build();
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    this.timer = setInterval(() => {
+      if (state.tab !== "home" || document.hidden) return;
+      const spans = $("#hero-rot").children;
+      spans[this.i].classList.remove("on"); this.i = (this.i + 1) % spans.length; spans[this.i].classList.add("on");
+    }, 3500);
+  },
+};
+
+/* ---------- tabs (each page gets its own address, so the Back button works) ---------- */
+function tabFromHash() { const h = location.hash.slice(1); return TABS.includes(h) ? h : "home"; }
+function openTab(which, remember = true) {
+  state.tab = which;
+  for (const tb of TABS) { $("#p-" + tb).hidden = tb !== which; const b = $("#t-" + tb); if (b) b.setAttribute("aria-selected", String(tb === which)); }
   if (which === "area") Maps.refresh();
   if (which === "curfew" && !$("#c-home").value && state.place) $("#c-home").value = state.place.matched;
+  if (which === "home") drawMap();
+  if (remember && tabFromHash() !== which) history.pushState(null, "", which === "home" ? location.pathname : "#" + which);
   window.scrollTo(0, 0);
 }
-TABS.forEach((t) => ($("#t-" + t).onclick = () => openTab(t)));
+NAV.forEach((tb) => ($("#t-" + tb).onclick = () => openTab(tb)));
+window.addEventListener("popstate", () => openTab(tabFromHash(), false));
+$("#home-link").onclick = (e) => { e.preventDefault(); openTab("home"); };
+document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => openTab(b.dataset.go)));
 document.addEventListener("keydown", (e) => {
   if (!e.target.classList.contains("tab") || !["ArrowLeft", "ArrowRight"].includes(e.key)) return;
-  const i = TABS.indexOf(e.target.id.slice(2)), n = TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length];
+  const i = NAV.indexOf(e.target.id.slice(2)), n = NAV[(i + (e.key === "ArrowRight" ? 1 : NAV.length - 1)) % NAV.length];
   openTab(n); $("#t-" + n).focus();
 });
 function segment(el, items, onPick, selected) {
@@ -281,10 +720,47 @@ function segment(el, items, onPick, selected) {
 }
 function setSegment(el, v) { for (const b of el.children) b.setAttribute("aria-pressed", String(b.dataset.value === String(v))); }
 
-/* map: satellite (Esri, free) with a street-map switch; Google if a key is set */
-const DOT = { base: { fill: "#9fb0be", edge: "#6b7f90", op: 0.9, osm: 4, g: 18 }, dim: { fill: "#d5dee5", edge: "#d5dee5", op: 0.6, osm: 3, g: 14 }, hit: { edge: "#13293d", op: 1, osm: 7, g: 32 } };
+/* ---------- landing background: the real shape of Miami, with bus routes tracing themselves ---------- */
+async function drawMap() {
+  const svg = $("#map-bg");
+  if (svg.dataset.drawn) return;
+  let d;
+  try { d = await api("/api/lines"); } catch (e) { return; }
+  if (svg.dataset.drawn) return;
+  svg.dataset.drawn = "1";
+  const [s, w, n, e] = d.bbox, k = Math.cos(((s + n) / 2) * Math.PI / 180);
+  const W = 1000, H = Math.round(W * (n - s) / ((e - w) * k));
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const X = (lon) => (((lon - w) / (e - w)) * W).toFixed(1), Y = (lat) => (((n - lat) / (n - s)) * H).toFixed(1);
+  const path = (pts) => "M" + pts.map(([la, lo]) => X(lo) + "," + Y(la)).join("L");
+  const NS = "http://www.w3.org/2000/svg";
+  const add = (tag, attrs, parent = svg) => { const el = document.createElementNS(NS, tag); for (const [a, v] of Object.entries(attrs)) el.setAttribute(a, v); parent.appendChild(el); return el; };
+  for (const poly of d.land) add("path", { d: path(poly) + "Z", class: "land" });
+  for (const r of d.river) add("path", { d: path(r), class: "river" });
+  for (const c of d.causeways) add("path", { d: path(c), class: "road" });
+  // a few quiet place names so it reads as Miami
+  for (const [label, la, lo] of [["Biscayne Bay", 25.795, -80.163], ["Miami Beach", 25.80, -80.128], ["Atlantic", 25.745, -80.118]])
+    add("text", { x: X(lo), y: Y(la), class: "label", "text-anchor": "middle" }).textContent = label;
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  d.lines.forEach((line, i) => {
+    const p = add("path", { d: path(line), class: "bus", id: "rl" + i });
+    const len = Math.ceil(p.getTotalLength());
+    p.style.setProperty("--len", len); p.style.setProperty("--delay", (i * 0.1).toFixed(2) + "s");
+    if (still || i % 4) return;
+    const c = add("circle", { r: "4" });
+    const m = add("animateMotion", { dur: Math.round(len / 18 + 10) + "s", repeatCount: "indefinite", begin: (2 + i * 0.1).toFixed(2) + "s" }, c);
+    add("mpath", { href: "#rl" + i }, m);
+  });
+}
+
+/* ---------- map: street map by default (bus stops are easy to see), satellite as an option ---------- */
+const DOT = {
+  base: { fill: "#ffffff", edge: INK, op: 1, w: 3, osm: 6, g: 22 },
+  dim:  { fill: "#ffffff", edge: "#9aa7ad", op: 0.8, w: 2, osm: 4, g: 14 },
+  hit:  { fill: BLUE, edge: "#ffffff", op: 1, w: 2, osm: 8, g: 32 },
+};
 const Maps = {
-  kind: null, ready: null, g: null, items: [], lines: {}, dots: [], colors: {},
+  kind: null, ready: null, g: null, items: [], lines: {}, dots: [], placeMarks: [], home: null, ring: null, stopsOn: true, view: null,
   init(key) {
     if (this.ready) return this.ready;
     this.ready = new Promise((resolve) => {
@@ -299,27 +775,33 @@ const Maps = {
     return this.ready;
   },
   refresh() { if (!this.g) return; if (this.kind === "google") google.maps.event.trigger(this.g, "resize"); else this.g.invalidateSize(); },
-  clear() { this.items.forEach((i) => (this.kind === "google" ? i.setMap(null) : i.remove())); this.items = []; this.lines = {}; this.dots = []; },
+  drop(i) { this.kind === "google" ? i.setMap(null) : i.remove(); },
+  clear() { this.items.forEach((i) => this.drop(i)); this.items = []; this.lines = {}; this.dots = []; },
   show(lat, lon, miles, stops, routes) {
     $("#map-ph").hidden = true; $("#legend").hidden = false;
     $("#map").hidden = this.kind !== "google"; $("#map-leaflet").hidden = this.kind === "google";
-    this.colors = Object.fromEntries(routes.map((r) => [r.route, r.color]));
+    this.home = { lat, lon };
     const meters = miles * 1609.34;
-    if (this.kind === "google") return this.showGoogle(lat, lon, meters, stops, routes);
-    this.showOsm(lat, lon, meters, stops, routes);
+    if (this.kind === "google") this.showGoogle(lat, lon, meters, stops, routes);
+    else this.showOsm(lat, lon, meters, stops, routes);
+    this.setStops(this.stopsOn);
   },
   showGoogle(lat, lon, meters, stops, routes) {
-    if (!this.g) this.g = new google.maps.Map($("#map"), { center: { lat, lng: lon }, zoom: 14, mapTypeId: "hybrid", mapTypeControl: true, mapTypeControlOptions: { mapTypeIds: ["hybrid", "roadmap"] }, streetViewControl: false, fullscreenControl: false, clickableIcons: false });
+    if (!this.g) this.g = new google.maps.Map($("#map"), { center: { lat, lng: lon }, zoom: 14, mapTypeId: "roadmap", mapTypeControl: true, mapTypeControlOptions: { mapTypeIds: ["roadmap", "hybrid"] }, streetViewControl: false, fullscreenControl: false, clickableIcons: false });
     this.clear();
     const c = { lat, lng: lon };
-    const circle = new google.maps.Circle({ map: this.g, center: c, radius: meters, strokeColor: "#FFC531", strokeWeight: 3, fillColor: "#FFC531", fillOpacity: 0.08, clickable: false });
-    this.items.push(circle, new google.maps.Marker({ map: this.g, position: c, title: "The address" }));
+    const circle = new google.maps.Circle({ map: this.g, center: c, radius: meters, strokeColor: INK, strokeWeight: 2, strokeOpacity: 0.8, fillColor: INK, fillOpacity: 0.04, clickable: false });
+    this.ring = circle;
+    this.items.push(circle, new google.maps.Marker({ map: this.g, position: c, title: t("the_address"), zIndex: 1000 }));
     for (const r of routes) for (const shape of r.shapes) {
-      const pl = new google.maps.Polyline({ map: this.g, path: shape.map(([a, b]) => ({ lat: a, lng: b })), strokeColor: r.color, strokeWeight: 6, strokeOpacity: 0, clickable: false });
-      this.items.push(pl); (this.lines[r.route] ||= []).push(pl);
+      const p = shape.map(([a, b]) => ({ lat: a, lng: b }));
+      for (const [color, weight] of [["#ffffff", 10], [BLUE, 5]]) {
+        const pl = new google.maps.Polyline({ map: this.g, path: p, strokeColor: color, strokeWeight: weight, strokeOpacity: 0, clickable: false });
+        this.items.push(pl); (this.lines[r.route] ||= []).push(pl);
+      }
     }
     for (const s of stops) {
-      const o = new google.maps.Circle({ map: this.g, center: { lat: s.lat, lng: s.lon }, radius: DOT.base.g, strokeWeight: 1, clickable: false });
+      const o = new google.maps.Circle({ map: this.g, center: { lat: s.lat, lng: s.lon }, radius: DOT.base.g, clickable: false, zIndex: 50 });
       const d = { o, routes: s.routes }; this.items.push(o); this.dots.push(d); this.styleDot(d, DOT.base);
     }
     this.g.fitBounds(circle.getBounds(), 20);
@@ -328,34 +810,48 @@ const Maps = {
     if (!this.g) {
       this.g = L.map("map-leaflet");
       const esri = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+      const street = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(this.g);
       const sat = L.layerGroup([
         L.tileLayer(esri + "World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics" }),
         L.tileLayer(esri + "Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }),
         L.tileLayer(esri + "Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }),
-      ]).addTo(this.g);
-      const street = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" });
-      L.control.layers({ "Satellite photo": sat, "Street map": street }, null, { collapsed: false }).addTo(this.g);
+      ]);
+      this.base = { street, sat };
+      this.setBaseNames();
     }
     this.g.invalidateSize();
     this.g.setView([lat, lon], 14);
     this.clear();
-    const bounds = L.latLng(lat, lon).toBounds(meters * 2);
-    const circle = L.circle([lat, lon], { radius: meters, color: "#FFC531", weight: 3, fillOpacity: 0.08, interactive: false }).addTo(this.g);
-    this.items.push(circle, L.marker([lat, lon]).addTo(this.g).bindTooltip("The address"));
+    const circle = L.circle([lat, lon], { radius: meters, color: INK, weight: 2, opacity: 0.8, dashArray: "6 6", fillOpacity: 0.04, interactive: false }).addTo(this.g);
+    this.ring = circle;
+    this.items.push(circle, L.marker([lat, lon], { zIndexOffset: 1000 }).addTo(this.g).bindTooltip(t("the_address")));
     for (const r of routes) for (const shape of r.shapes) {
-      const pl = L.polyline(shape, { color: r.color, weight: 6, opacity: 0, interactive: false }).addTo(this.g);
-      this.items.push(pl); (this.lines[r.route] ||= []).push(pl);
+      for (const [color, weight] of [["#ffffff", 10], [BLUE, 5]]) {
+        const pl = L.polyline(shape, { color, weight, opacity: 0, interactive: false }).addTo(this.g);
+        this.items.push(pl); (this.lines[r.route] ||= []).push(pl);
+      }
     }
     for (const s of stops) {
-      const o = L.circleMarker([s.lat, s.lon], { weight: 1 }).addTo(this.g).bindTooltip(s.name);
+      const o = L.circleMarker([s.lat, s.lon], {}).addTo(this.g).bindTooltip(`${s.name} (${t("bus_stop")})`);
       const d = { o, routes: s.routes }; this.items.push(o); this.dots.push(d); this.styleDot(d, DOT.base);
     }
-    this.g.fitBounds(bounds, { padding: [20, 20] });
+    this.g.fitBounds(L.latLng(lat, lon).toBounds(meters * 2), { padding: [20, 20] });
   },
-  styleDot(d, s, color) {
-    const fill = s.fill || color;
-    if (this.kind === "google") d.o.setOptions({ fillColor: fill, strokeColor: s.edge, fillOpacity: s.op, strokeOpacity: s.op, radius: s.g });
-    else d.o.setStyle({ fillColor: fill, color: s.edge, fillOpacity: s.op, opacity: s.op, radius: s.osm });
+  setBaseNames() {  // the street/satellite switch, in the current language
+    if (this.kind !== "osm" || !this.g) return;
+    if (this.view) this.view.remove();
+    this.view = L.control.layers({ [t("street_map")]: this.base.street, [t("satellite")]: this.base.sat }, null, { collapsed: false }).addTo(this.g);
+  },
+  styleDot(d, s) {
+    if (this.kind === "google") d.o.setOptions({ fillColor: s.fill, strokeColor: s.edge, strokeWeight: s.w, fillOpacity: s.op, strokeOpacity: s.op, radius: s.g });
+    else d.o.setStyle({ fillColor: s.fill, color: s.edge, weight: s.w, fillOpacity: s.op, opacity: s.op, radius: s.osm });
+  },
+  setStops(on) {
+    this.stopsOn = on;
+    for (const d of this.dots) {
+      if (this.kind === "google") d.o.setVisible(on);
+      else if (on) d.o.addTo(this.g); else d.o.remove();
+    }
   },
   focus(route) {
     const google = this.kind === "google";
@@ -363,15 +859,49 @@ const Maps = {
       const op = route && name === route ? 0.95 : 0;
       google ? pl.setOptions({ strokeOpacity: op }) : pl.setStyle({ opacity: op });
     }
+    if (route && !this.stopsOn) this.setStops(true);
     for (const d of this.dots) {
       if (!route) this.styleDot(d, DOT.base);
-      else if (d.routes.includes(route)) this.styleDot(d, DOT.hit, this.colors[route]);
+      else if (d.routes.includes(route)) this.styleDot(d, DOT.hit);
       else this.styleDot(d, DOT.dim);
     }
   },
+  setPlaces(places, layers, fit) {
+    this.placeMarks.forEach((m) => this.drop(m.m)); this.placeMarks = [];
+    if (!this.g || !places || !places.available) return;
+    const pts = [];
+    for (const [kind, v] of Object.entries(places.kinds)) {
+      if (!layers.has(kind)) continue;
+      v.items.forEach((p, i) => {
+        const tip = p.name + (p.address ? ", " + p.address : "");
+        let m;
+        if (this.kind === "google") {
+          m = new google.maps.Marker({ map: this.g, position: { lat: p.lat, lng: p.lon }, title: tip, zIndex: 900 - i,
+            label: { text: LETTER[kind] || "?", color: "#fff", fontWeight: "800", fontSize: "11px" },
+            icon: { path: "M -12 -12 L 12 -12 L 12 12 L -12 12 Z", fillColor: INK, fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2, scale: 1 } });
+        } else {
+          m = L.marker([p.lat, p.lon], { zIndexOffset: 900 - i, icon: L.divIcon({ className: "pm", html: pinHtml(kind), iconSize: [26, 26], iconAnchor: [13, 13] }) })
+            .bindTooltip(tip).addTo(this.g);
+        }
+        this.placeMarks.push({ m, key: kind + ":" + i });
+        if (i === 0) pts.push([p.lat, p.lon]);
+      });
+    }
+    if (!fit || !pts.length || !this.home) return;
+    // zoom out just enough to show the closest one of each kind
+    const b = this.ring.getBounds();
+    if (this.kind === "google") { pts.forEach(([a, c]) => b.extend({ lat: a, lng: c })); this.g.fitBounds(b, 30); }
+    else { pts.forEach((p) => b.extend(p)); this.g.fitBounds(b, { padding: [30, 30] }); }
+  },
+  goTo(kind, i) {
+    const pm = this.placeMarks.find((x) => x.key === kind + ":" + i);
+    if (!pm) return;
+    if (this.kind === "google") { this.g.panTo(pm.m.getPosition()); this.g.setZoom(16); }
+    else { this.g.setView(pm.m.getLatLng(), 16); pm.m.openTooltip(); }
+  },
 };
 
-/* result pieces */
+/* ---------- result pieces ---------- */
 function spark(points) {
   if (!points || points.length < 2) return "";
   const W = 90, H = 56, P = 6, xs = points.map((p) => p[0]), ys = points.map((p) => p[1]);
@@ -379,164 +909,236 @@ function spark(points) {
   const px = (x) => P + ((x - x0) / (x1 - x0 || 1)) * (W - 2 * P), py = (y) => H - P - ((y - y0) / (y1 - y0 || 1)) * (H - 2 * P);
   const d = points.map((p, i) => (i ? "L" : "M") + px(p[0]).toFixed(1) + " " + py(p[1]).toFixed(1)).join(" ");
   const last = points[points.length - 1];
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Rent over time, going from ${money(points[0][1])} to ${money(last[1])}" style="flex:none"><path d="${d}" fill="none" stroke="#C2410C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${px(last[0])}" cy="${py(last[1])}" r="4.5" fill="#C2410C"/></svg>`;
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t("spark_label", { a: money(points[0][1]), b: money(last[1]) }))}" style="flex:none"><path d="${d}" fill="none" stroke="${BLUE}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${px(last[0])}" cy="${py(last[1])}" r="4" fill="${BLUE}"/></svg>`;
 }
-function missing(what) { return `<p>${what} isn't loaded yet.</p><p class="hint">Run <code>python scripts/update_all_data.py</code>, then restart the app.</p>`; }
-function rentBlock(r, heading) {
-  if (!r || !r.available) return `<h2>Rent</h2>` + (r && r.reason ? `<p>${esc(r.reason)}</p>` : missing("Rent data"));
-  let h = `<h2>${heading || "Rent"}</h2>`;
-  if (!r.then) h += `<p class="big">Typical rent is ${money(r.now)} a month.</p>`;
-  else {
-    h += `<div class="split"><div><p class="big" style="margin-bottom:.3rem">Rent here is up ${money(r.diff)} a month since ${r.then_year}.</p>
-      <p>It was ${money(r.then)} then. It's ${money(r.now)} now. (ZIP code ${esc(r.zip)})</p></div>${spark(r.history.filter((x) => x[0] >= r.then_year))}</div>`;
-    if (r.clamped) h += `<p class="hint">Our rent numbers only go back to ${r.first_year}.</p>`;
-  }
-  return h + `<p class="src">${esc(r.note)}</p>` + srcLine(r.source, r.source_url);
-}
-function pricesBlock(p) {
-  if (!p || !p.available) return `<h2>Prices at the store</h2>` + missing("Price data");
-  const cpi = p.items.find((i) => i.id === "cpi_miami"), rest = p.items.filter((i) => i.id !== "cpi_miami");
-  let h = `<h2>Prices at the store</h2>`;
-  if (cpi) h += `<p class="big" style="margin-bottom:.3rem">Prices overall in Miami are up ${cpi.pct}% since ${monthName(cpi.then_month)}.</p><p>Something that cost $100 then costs about ${money(100 + cpi.pct)} now.</p>`;
-  if (rest.length) h += `<table><thead><tr><th>Item</th><th>Then</th><th>Now</th><th>Change</th></tr></thead><tbody>` +
-    rest.map((i) => `<tr><td>${esc(i.label)}<div class="hint">${esc(i.area)}</div></td><td>${money2(i.then)}</td><td>${money2(i.now)}</td><td><span class="${i.pct > 0 ? "up" : "good"}">${i.pct > 0 ? "+" : ""}${i.pct}%</span></td></tr>`).join("") + `</tbody></table>`;
-  return h + srcLine(p.source, p.source_url);
-}
+function missing(what) { return `<p>${t("missing", { w: what })}</p><p class="hint">${t("missing_hint")}</p>`; }
 function goneBlock(list) {
   if (!list || !list.length) return "";
-  return `<div class="gone"><strong>Buses that no longer run here</strong><ul>` + list.map((g) => `<li><strong>${esc(g.route)}.</strong> ${esc(g.instead)}</li>`).join("") + `</ul></div>`;
+  return `<div class="gone"><strong>${t("gone_h")}</strong><ul>` + list.map((g) => `<li><strong>${esc(g.route)}.</strong> ${esc(tr(g.instead))}</li>`).join("") + `</ul></div>`;
 }
-const GROUPS = [
-  ["local", "Local buses", "Run all day, most days.", true],
-  ["rail", "Metrorail and Metromover", "Trains and the free downtown loop.", false],
-  ["express", "Express and rush-hour buses", "Fewer trips, mostly weekday mornings and afternoons.", false],
-  ["night", "Overnight buses", "Run when the others don't.", false],
-];
+const GROUP_IDS = [["local", true], ["rail", false], ["express", false], ["night", false]];
 function busGroup(r) { if (r.type !== 3) return "rail"; if (/owl/i.test(r.name)) return "night"; if (/max|express|park & ride/i.test(r.name)) return "express"; return "local"; }
 function routeRow(r) {
-  return `<div class="route"><button class="chip" type="button" data-route="${esc(r.route)}" aria-pressed="false" style="background:${esc(r.color)}" aria-label="Show route ${esc(r.route)} on the map">${esc(r.route)}</button>
-    <div><div class="name">${esc(r.name || "Route " + r.route)}</div><div class="meta">Closest stop is ${r.closest_miles} mi away</div>
-    ${r.change ? `<div class="change"><strong>Changed:</strong> ${esc(r.change)}</div>` : ""}</div></div>`;
+  return `<div class="route"><button class="chip" type="button" data-route="${esc(r.route)}" aria-pressed="false" aria-label="${esc(t("show_route", { r: r.route }))}">${esc(r.route)}</button>
+    <div><div class="name">${esc(r.name || t("route_n", { r: r.route }))}</div><div class="meta">${t("closest_stop", { n: r.closest_miles })}</div>
+    ${r.change ? `<div class="change"><strong>${t("changed")}</strong> ${esc(tr(r.change))}</div>` : ""}</div></div>`;
 }
 function busBlock(b, gone, miles) {
-  if (!b || !b.available) return `<h2>Buses and trains near you</h2>` + missing("Bus data");
-  let h = `<h2>Buses and trains within ${MILES[miles].toLowerCase()}</h2>`;
-  if (!b.routes.length) h += `<p>No bus or train stops are this close. Try a bigger distance.</p>`;
+  if (!b || !b.available) return `<h2>${t("buses_h")}</h2>` + missing(t("w_bus"));
+  let h = `<h2>${t("buses_within", { m: t("mi")[miles].toLowerCase() })}</h2>`;
+  if (!b.routes.length) h += `<p>${t("no_stops_close")}</p>`;
   else {
     const by = {}; for (const r of b.routes) (by[busGroup(r)] ||= []).push(r);
-    h += `<p class="hint">Tap a route number to see where it goes on the map.</p>` + GROUPS.filter((g) => by[g[0]]).map(([id, title, hint, open]) => {
-      const list = by[id], first = list.slice(0, 6), more = list.slice(6);
-      return `<details class="grp"${open ? " open" : ""}><summary>${title} <span class="count">${list.length}</span></summary><p class="hint">${hint}</p>${first.map(routeRow).join("")}
-        ${more.length ? `<details class="more"><summary>Show ${more.length} more</summary>${more.map(routeRow).join("")}</details>` : ""}</details>`;
+    h += `<p class="hint">${t("tap_route")}</p>` + GROUP_IDS.filter(([id]) => by[id]).map(([id, open]) => {
+      const [title, hint] = t("groups")[id], list = by[id], first = list.slice(0, 6), more = list.slice(6);
+      return `<details class="grp"${open ? " open" : ""}><summary>${title} <span class="count">(${list.length})</span></summary><p class="hint">${hint}</p>${first.map(routeRow).join("")}
+        ${more.length ? `<details class="more"><summary>${t("show_more", { n: more.length })}</summary>${more.map(routeRow).join("")}</details>` : ""}</details>`;
     }).join("");
   }
-  return h + goneBlock(gone) + `<p class="src">Routes and stops: <a href="${esc(b.source_url)}" target="_blank" rel="noopener">Miami-Dade Transit</a>. Changes come from the county's <a href="${esc(b.changes_url)}" target="_blank" rel="noopener">route guide</a> for the big bus change of Nov. 13, 2023. Before you ride, check the GO Miami-Dade Transit app or call 311.</p>`;
+  return h + goneBlock(gone) + `<p class="src">${t("bus_src", { a: esc(b.source_url), b: esc(b.changes_url) })}</p>`;
 }
 
-/* WHERE I'LL LIVE */
+/* places: the switches, the map pins, and the "closest" list */
+function renderLayers() {
+  const kinds = (state.cfg && state.cfg.place_kinds) || {};
+  const opts = ["stops", ...Object.keys(kinds)];
+  $("#layers").innerHTML = `<legend>${t("show_on_map")}</legend>` + opts.map((k) =>
+    `<label><input type="checkbox" value="${esc(k)}"${state.layers.has(k) ? " checked" : ""}> ${pinHtml(k)} ${esc(k === "stops" ? t("stops") : t("kinds")[k] || kinds[k])}</label>`).join("");
+  $("#layers").querySelectorAll("input").forEach((c) => (c.onchange = () => {
+    c.checked ? state.layers.add(c.value) : state.layers.delete(c.value);
+    if (c.value === "stops") return Maps.setStops(c.checked);
+    Maps.setPlaces(state.places, state.layers, c.checked);
+    $("#c-places").innerHTML = placesBlock(state.places);
+  }));
+}
+function placesBlock(p) {
+  if (!p || !p.available) return `<h2>${t("closest")}</h2>` + missing(t("w_places"));
+  const on = Object.entries(p.kinds).filter(([k]) => state.layers.has(k));
+  let h = `<h2>${t("closest")}</h2>`;
+  if (!on.length) return h + `<p>${t("turn_on")}</p>`;
+  h += on.map(([k, v]) => {
+    const [first, ...rest] = v.items;
+    if (!first) return "";
+    const how = first.miles <= 0.6 ? t("walk_min", { n: Math.max(1, first.walk_minutes) })
+      : first.bus ? t("take_bus", { r: esc(first.bus.route), a: esc(first.bus.board), b: esc(first.bus.off) })
+      : t("no_one_bus");
+    return `<div class="place"><div class="kind">${pinHtml(k)} ${esc(t("one")[k] || v.label)}</div>
+      <button class="name" type="button" data-goto="${esc(k)}:0">${esc(first.name)}</button>
+      <div class="hint">${first.address ? esc(first.address) + " · " : ""}${t("mi_away", { n: first.miles })}${first.phone ? " · " + esc(first.phone) : ""}</div>
+      <p class="how">${how}</p>
+      ${rest.length ? `<div class="others">${t("also")} ${rest.slice(0, 2).map((x, i) => `<a href="#" data-goto="${esc(k)}:${i + 1}">${esc(x.name)}</a> (${x.miles} mi)`).join(", ")}</div>` : ""}</div>`;
+  }).join("");
+  return h + srcLine("OpenStreetMap", p.source_url) + `<p class="src">${t("places_note")}</p>`;
+}
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-goto]");
+  if (!el) return;
+  e.preventDefault();
+  const [k, i] = el.dataset.goto.split(":");
+  Maps.goTo(k, +i);
+  if (window.innerWidth < 900) $(".mapcol").scrollIntoView({ behavior: "smooth" });
+});
+
+/* ---------- WHAT'S CLOSE BY ---------- */
+function areaLoading() {
+  $("#results").hidden = false;
+  $("#where").textContent = t("looking_up");
+  for (const [id, n] of [["#c-places", 4], ["#c-buses", 5]]) $(id).innerHTML = skel(n);
+}
+function bindChips() {
+  document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => {
+    const on = c.getAttribute("aria-pressed") !== "true";
+    document.querySelectorAll(".chip").forEach((o) => o.setAttribute("aria-pressed", "false"));
+    c.setAttribute("aria-pressed", String(on)); Maps.focus(on ? c.dataset.route : null);
+    if (on) { state.layers.add("stops"); const s = $('#layers input[value="stops"]'); if (s) s.checked = true; }
+    if (window.innerWidth < 900 && on) $(".mapcol").scrollIntoView({ behavior: "smooth" });
+  }));
+}
+function placeName(place) { return place.areaMiddle ? t("middle", { a: place.areaMiddle }) : place.matched; }
+// draws the text part of the results; the map is drawn once in loadArea
+function renderArea(a, first) {
+  const { d, place } = a;
+  $("#where").innerHTML = t("showing", { p: esc(placeName(place)) }) + (d.area ? t("showing_in", { a: esc(d.area.name) }) : t("showing_out"));
+  renderLayers();
+  $("#c-places").innerHTML = placesBlock(d.places);
+  $("#c-buses").innerHTML = busBlock(d.buses, d.gone, state.radius);
+  bindChips();
+  applyStatic();
+  if (!first) { Maps.setBaseNames(); Maps.focus(null); }
+}
 async function loadArea(place) {
   showError("#area-error", "");
-  const go = $("#addr-go"); go.disabled = true; go.textContent = "Looking...";
+  const go = $("#addr-go"); go.disabled = true; go.textContent = t("looking");
+  areaLoading();
   try {
     const d = await api(`/api/nearby?lat=${place.lat}&lon=${place.lon}&zip=${encodeURIComponent(place.zip || "")}&radius=${state.radius}`);
-    state.place = { ...place, radius: state.radius, area_id: d.area ? d.area.id : "" };
-    state.areaId = d.area ? d.area.id : ""; state.zip = place.zip || "";
-    $("#results").hidden = false;
-    $("#where").innerHTML = `Showing <strong>${esc(place.matched)}</strong>` + (d.area ? `, in <strong>${esc(d.area.name)}</strong>.` : `. This is outside Little Havana, Downtown, and Overtown, so the rent and price numbers are for the closest ZIP code we have.`);
-    $("#c-rent").innerHTML = rentBlock(d.rent);
-    $("#c-prices").innerHTML = pricesBlock(d.prices);
-    $("#c-buses").innerHTML = busBlock(d.buses, d.gone, state.radius);
+    state.place = { ...place, matched: placeName(place), radius: state.radius, area_id: d.area ? d.area.id : "" };
+    state.areaId = d.area ? d.area.id : ""; state.zip = place.zip || ""; state.places = d.places;
+    state.lastArea = { d, place };
+    renderArea(state.lastArea, true);
     await Maps.init(state.cfg.maps_key);
     const routes = d.buses.available ? d.buses.routes : [];
-    try { Maps.show(place.lat, place.lon, state.radius, d.buses.available ? d.buses.stops : [], routes); } catch (err) { console.error(err); }
-    document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => {
-      const on = c.getAttribute("aria-pressed") !== "true";
-      document.querySelectorAll(".chip").forEach((o) => o.setAttribute("aria-pressed", "false"));
-      c.setAttribute("aria-pressed", String(on)); Maps.focus(on ? c.dataset.route : null);
-      if (window.innerWidth < 900 && on) $(".mapcol").scrollIntoView({ behavior: "smooth" });
-    }));
+    try { Maps.show(place.lat, place.lon, state.radius, d.buses.available ? d.buses.stops : [], routes); Maps.setStops(state.layers.has("stops")); Maps.setPlaces(d.places, state.layers, false); } catch (err) { console.error(err); }
     syncSinceArea();
-  } catch (e) { showError("#area-error", e.message); }
-  go.disabled = false; go.textContent = "Show me";
+  } catch (e) { showError("#area-error", e.message); $("#results").hidden = true; }
+  go.disabled = false; go.textContent = t("show_me");
 }
 $("#addr-form").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const q = $("#addr").value.trim();
-  if (q.length < 3) return showError("#area-error", "Type an address first, or pick a neighborhood below.");
-  const go = $("#addr-go"); go.disabled = true; go.textContent = "Looking...";
-  try { await loadArea(await api("/api/geocode?q=" + encodeURIComponent(q))); } catch (e) { showError("#area-error", e.message); }
-  go.disabled = false; go.textContent = "Show me";
+  if (q.length < 3) return showError("#area-error", t("need_addr"));
+  const go = $("#addr-go"); go.disabled = true; go.textContent = t("looking");
+  areaLoading();
+  try { await loadArea(await api("/api/geocode?q=" + encodeURIComponent(q))); } catch (e) { showError("#area-error", e.message); $("#results").hidden = true; }
+  go.disabled = false; go.textContent = t("show_me");
 });
 
-/* DATE CONVICTED */
+/* ---------- WHAT'S CHANGED IN MY AREA ---------- */
 function syncSinceArea() {
   if (state.areaId) { state.sinceArea = state.areaId; setSegment($("#since-area"), state.areaId); }
-  $("#since-hint").textContent = state.areaId ? "We filled this in from your address. You can change it." : "Not sure? Pick the closest one.";
+  $("#since-hint").textContent = state.areaId ? t("hint_filled") : t("hint_pick");
 }
 $("#since-form").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const d = $("#date").value;
-  if (!d) return showError("#since-error", "Pick the date you were convicted.");
-  if (!state.sinceArea) return showError("#since-error", "Pick where you'll stay.");
+  if (!d) return showError("#since-error", t("need_date"));
+  if (!state.sinceArea) return showError("#since-error", t("need_stay"));
   showError("#since-error", "");
-  const go = $("#since-go"); go.disabled = true; go.textContent = "Looking...";
+  const go = $("#since-go"); go.disabled = true; go.textContent = t("looking");
+  const before = $("#since-out").innerHTML; $("#since-out").innerHTML = skel(6);
   try {
     const area = state.cfg.areas.find((a) => a.id === state.sinceArea);
     const zip = state.zip && state.areaId === state.sinceArea ? state.zip : area.zips[0];
     const f = await api(`/api/since?date=${d}&area=${state.sinceArea}&zip=${zip}`);
     state.sinceDate = d; renderSince(f, zip);
-  } catch (e) { showError("#since-error", e.message); }
-  go.disabled = false; go.textContent = "Show what changed";
+  } catch (e) { showError("#since-error", e.message); $("#since-out").innerHTML = before; }
+  go.disabled = false; go.textContent = t("since_btn");
 });
 function eventRow(e) {
-  const dt = new Date(e.date + "T12:00:00");
-  return `<div class="ev"><div class="d"><b>${dt.getFullYear()}</b><span>${dt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span></div><div class="rail"></div>
-    <div class="body"><h3>${esc(e.title)}</h3><p>${esc(e.detail)}</p><p><strong>What to do:</strong> ${esc(e.action)}</p>
-    <p class="src">Source: <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.source)}</a></p></div></div>`;
+  return `<div class="ev"><div class="d"><b>${e.date.slice(0, 4)}</b><span>${esc(shortDate(e.date))}</span></div><div class="rail"></div>
+    <div class="body"><h3>${esc(tr(e.title))}</h3><p>${esc(tr(e.detail))}</p><p><strong>${t("todo")}</strong> ${esc(tr(e.action))}</p>
+    <p class="src">${t("source")} <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.source)}</a></p></div></div>`;
+}
+function sinceTimeline(f) {
+  const news = f.events.filter((e) => !e.still_true), still = f.events.filter((e) => e.still_true);
+  let h = `<h3 style="margin-top:1.4rem">${t("new_h")}</h3>` + (news.length ? `<div style="margin-top:1rem">${news.map(eventRow).join("")}</div>` : `<p>${t("nothing_new")}</p>`);
+  if (still.length) h += `<h3 style="margin-top:1.4rem">${t("still_h")}</h3>` + still.map((e) => `<div class="row2" style="display:block"><strong>${esc(tr(e.title))}</strong> ${esc(tr(e.detail))} <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.source)}</a></div>`).join("");
+  return h;
+}
+function sinceTable(f, zip) {
+  const w = f.min_wage, r = f.rent, p = f.prices;
+  const pct = (a, b) => { const v = Math.round((b / a - 1) * 100); return `<span class="${v > 0 ? "up" : "good"}">${v > 0 ? "+" : ""}${v}%</span>`; };
+  const rows = [];
+  if (w.now) rows.push([`${t("r_wage")} <div class="hint">${t("r_wage_s")}</div>`, w.then ? money2(w.then) : t("under"), money2(w.now), w.then ? pct(w.then, w.now) : ""]);
+  if (r && r.available && r.then) rows.push([`${t("r_rent")} <div class="hint">${t("r_rent_s", { z: esc(r.zip || zip), a: r.then_year, b: r.now_year })}</div>`, money(r.then), money(r.now), pct(r.then, r.now)]);
+  if (p && p.available) for (const i of p.items) {
+    if (i.id === "cpi_miami") rows.push([`${t("r_cpi")} <div class="hint">${t("r_cpi_s")}</div>`, "$100", money(100 + i.pct), pct(100, 100 + i.pct)]);
+    else rows.push([`${esc(tr(i.label))} <div class="hint">${esc(tr(i.area))}</div>`, money2(i.then), money2(i.now), pct(i.then, i.now)]);
+  }
+  if (!rows.length) return `<p style="margin-top:1rem">${t("no_money")}</p>`;
+  let h = `<table class="sincetable" style="margin-top:1rem"><thead><tr><th>${t("th_what")}</th><th>${t("th_then")}</th><th>${t("th_now")}</th><th>${t("th_change")}</th></tr></thead><tbody>` +
+    rows.map((c) => `<tr>${c.map((x) => `<td>${x}</td>`).join("")}</tr>`).join("") + `</tbody></table>`;
+  if (r && r.available && r.then) h += `<div class="split" style="margin-top:1rem"><p class="hint" style="margin:0">${t("rent_from", { a: r.then_year, b: r.now_year })}</p>${spark(r.history.filter((x) => x[0] >= r.then_year))}</div>`;
+  if (r && r.clamped) h += `<p class="hint">${t("rent_clamped", { y: r.first_year })}</p>`;
+  if (p && p.clamped) h += `<p class="hint">${t("prices_clamped")}</p>`;
+  h += (r && r.available ? `<p class="src">${esc(tr(r.note))}</p>` + srcLine(r.source, r.source_url) : "") + (p && p.available ? srcLine(p.source, p.source_url) : "") + srcLine(t("wage_src"), w.source_url);
+  return h;
 }
 function renderSince(f, zip) {
-  const w = f.min_wage, r = f.rent, cpi = (f.prices.items || []).find((i) => i.id === "cpi_miami");
-  let h = `<h2 style="font-size:1.9rem">It's been about ${f.years_away} years since ${fmtDate(f.since)}.</h2>
-    <p class="lead">Here's what changed${f.area ? " in and around " + esc(f.area.name) : ""}.</p><h3>Money</h3>`;
-  if (w.now) h += `<div class="row2"><span>Minimum wage</span><span><strong>${money2(w.now)} an hour now</strong> <span class="hint">${w.then ? "was " + money2(w.then) : "was under $8.46"}</span></span></div>`;
-  if (r && r.available && r.then) h += `<div class="row2"><span>Rent in ZIP code ${esc(zip)}</span><span><strong>${money(r.now)} a month now</strong> <span class="hint">was ${money(r.then)} in ${r.then_year}</span></span></div>`;
-  if (cpi) h += `<div class="row2"><span>Prices overall in Miami</span><span><strong>up ${cpi.pct}%</strong> <span class="hint">since then</span></span></div>`;
-  const news = f.events.filter((e) => !e.still_true), still = f.events.filter((e) => e.still_true);
-  h += `<h3 style="margin-top:2rem">New things to know</h3>` + (news.length ? `<div style="margin-top:1rem">${news.map(eventRow).join("")}</div>` : `<p>Nothing new on our list since that date.</p>`);
-  if (still.length) h += `<h3 style="margin-top:1.4rem">Still good to know</h3>` + still.map((e) => `<div class="row2" style="display:block"><strong>${esc(e.title)}</strong> ${esc(e.detail)} <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.source)}</a></div>`).join("");
-  h += goneBlock(f.gone) + `<p style="margin-top:1.4rem"><button class="plain" type="button" onclick="window.print()">Print this page</button></p>`;
+  state.sinceLast = { f, zip };
+  const r = f.rent, cpi = (f.prices.items || []).find((i) => i.id === "cpi_miami");
+  const facts = [];
+  if (r && r.available && r.then) facts.push(t("f_rent", { m: money(r.diff) }));
+  if (cpi) facts.push(t("f_prices", { p: cpi.pct }));
+  if (f.min_wage.now) facts.push(t("f_wage", { m: money2(f.min_wage.now) }));
+  if (f.area) facts.push(t("f_area", { a: esc(f.area.name) }));
+  const v = state.sinceView;
+  let h = `<h2 style="font-size:1.7rem">${t("years", { n: f.years_away.toLocaleString(LANG === "en" ? "en-US" : LANG) , d: fmtDate(f.since) })}</h2>
+    <p class="lead">${facts.join(" ")}</p>
+    <div class="viewswitch" role="group" aria-label="${esc(t("show_how"))}">
+      <button type="button" data-view="timeline" aria-pressed="${v === "timeline"}">${t("timeline")}</button>
+      <button type="button" data-view="table" aria-pressed="${v === "table"}">${t("table")}</button></div>
+    <p class="hint" style="margin:0">${v === "timeline" ? t("tl_hint") : t("tb_hint")}</p>`;
+  h += v === "timeline" ? sinceTimeline(f) : sinceTable(f, zip);
+  h += goneBlock(f.gone) + `<p style="margin-top:1.4rem"><button class="plain" type="button" onclick="window.print()">${t("print")}</button></p>`;
   $("#since-out").innerHTML = h;
+  $("#since-out").querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => {
+    state.sinceView = b.dataset.view; renderSince(state.sinceLast.f, state.sinceLast.zip);
+    $(`#since-out [data-view="${state.sinceView}"]`).focus();
+  }));
 }
 
-/* HOME BY CURFEW */
+/* ---------- HOME BY CURFEW ---------- */
 function renderCurfew(r) {
   const cls = { ok: "good", tight: "warn", late: "bad", no_bus: "bad", walk: "warn" }[r.status] || "neutral";
   let h = `<div class="verdict ${cls}"><h2>${esc(r.headline)}</h2>${r.last_bus_line ? `<p style="margin:0">${esc(r.last_bus_line)}</p>` : ""}</div>`;
-  if (r.plan && r.plan.length) h += `<h3 style="margin-top:1.6rem">How you'd do it</h3><ol>${r.plan.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>`;
-  h += `<h3>Walking</h3><p>${esc(r.walk_line)}</p>`;
-  if (["tight", "late", "no_bus", "no_direct", "walk"].includes(r.status)) h += `<h3>What to do</h3><p>${esc(r.advice)}</p>`;
-  h += `<p class="hint" style="margin-top:1.4rem">${r.notes.map(esc).join("<br>")}</p><p><button class="plain" type="button" onclick="window.print()">Print this page</button></p>`;
+  if (r.plan && r.plan.length) h += `<h3 style="margin-top:1.6rem">${t("how_h")}</h3><ol>${r.plan.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>`;
+  h += `<h3>${t("walking_h")}</h3><p>${esc(r.walk_line)}</p>`;
+  if (["tight", "late", "no_bus", "no_direct", "walk"].includes(r.status)) h += `<h3>${t("todo_h")}</h3><p>${esc(r.advice)}</p>`;
+  h += `<p class="hint" style="margin-top:1.4rem">${r.notes.map(esc).join("<br>")}</p><p><button class="plain" type="button" onclick="window.print()">${t("print")}</button></p>`;
   $("#c-out").innerHTML = h;
 }
 async function runCurfew(c) {
-  const r = await api(`/api/curfew?lat1=${c.lat1}&lon1=${c.lon1}&lat2=${c.lat2}&lon2=${c.lon2}&end=${c.end}&curfew=${c.curfew}`);
+  state.lastCurfew = c;
+  const r = await api(`/api/curfew?lat1=${c.lat1}&lon1=${c.lon1}&lat2=${c.lat2}&lon2=${c.lon2}&end=${c.end}&curfew=${c.curfew}&lang=${LANG}`);
   renderCurfew(r);
 }
 $("#curfew-form").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const from = $("#c-from").value.trim(), home = $("#c-home").value.trim(), end = $("#c-end").value, cur = $("#c-time").value;
-  if (from.length < 3 || home.length < 3) return showError("#c-error", "Fill in both addresses.");
-  if (!end || !cur) return showError("#c-error", "Pick both times from the clock.");
+  if (from.length < 3 || home.length < 3) return showError("#c-error", t("need_both"));
+  if (!end || !cur) return showError("#c-error", t("need_times"));
   showError("#c-error", "");
-  const go = $("#c-go"); go.disabled = true; go.textContent = "Checking...";
+  const go = $("#c-go"); go.disabled = true; go.textContent = t("checking");
+  const before = $("#c-out").innerHTML; $("#c-out").innerHTML = skel(5);
   try {
     const a = await api("/api/geocode?q=" + encodeURIComponent(from)), b = await api("/api/geocode?q=" + encodeURIComponent(home));
     await runCurfew({ lat1: a.lat, lon1: a.lon, lat2: b.lat, lon2: b.lon, end, curfew: cur });
-  } catch (e) { showError("#c-error", e.message); }
-  go.disabled = false; go.textContent = "Can I make it home?";
+  } catch (e) { showError("#c-error", e.message); $("#c-out").innerHTML = before; }
+  go.disabled = false; go.textContent = t("c_btn");
 });
 
-/* ASK SAIL-BY (the agent) */
+/* ---------- ASK A QUESTION (the agent) ---------- */
 const chat = [];
 function context() {
   return { place: state.place ? { lat: state.place.lat, lon: state.place.lon, zip: state.place.zip || "", matched: state.place.matched, radius: state.radius, area_id: state.areaId } : null,
@@ -545,25 +1147,27 @@ function context() {
 async function ask(text) {
   const q = (text ?? $("#ask").value).trim();
   if (q.length < 3) return;
-  const btn = $("#ask-go"); btn.disabled = true; btn.textContent = "Working...";
+  if (q.includes(t("blank"))) { $("#ask").focus(); return selectBlank(); }
+  const btn = $("#ask-go"); btn.disabled = true; btn.textContent = t("ask_working");
   const turn = document.createElement("div"); turn.className = "turn";
-  turn.innerHTML = `<p class="you">${esc(q)}</p><p class="hint">Sail-by is looking things up. This can take up to 30 seconds.</p>`;
-  $("#thread").appendChild(turn); $("#ask").value = ""; $("#examples").hidden = true; $("#ask-reset").hidden = false;
+  turn.innerHTML = `<p class="you">${esc(q)}</p>${skel(3)}<p class="hint">${t("looking_ai")}</p>`;
+  $("#thread").appendChild(turn); $("#ask").value = ""; $("#home-extra").hidden = true; $("#ask-reset").hidden = false;
   turn.scrollIntoView({ behavior: "smooth", block: "nearest" });
   try {
     const r = await api("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: q, language: $("#ask-lang").value, history: chat.slice(-8), context: context() }) });
+      body: JSON.stringify({ message: q, language: LANG_NAME[LANG], history: chat.slice(-8), context: context() }) });
     chat.push({ role: "user", content: q }, { role: "assistant", content: r.answer });
     const acts = [];
-    if (r.place) acts.push(["map", "See the map and buses"]);
-    if (r.since) acts.push(["since", "See what changed"]);
-    if (r.curfew) acts.push(["curfew", "See the curfew check"]);
-    turn.innerHTML = `<p class="you">${esc(q)}</p>` + (r.steps.length ? `<p class="hint" style="margin:0">What Sail-by checked:</p><ul class="steps">${r.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : "") +
-      `<p class="answer">${esc(r.answer)}</p>` + (acts.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap">${acts.map(([k, l]) => `<button class="plain" type="button" data-act="${k}">${l}</button>`).join("")}</div>` : "") +
-      `<p class="hint" style="margin-top:.8rem">Ask another question in the box above, like a follow-up.</p>`;
+    if (r.place) acts.push(["map", r.show && r.show.length ? t("act_map_places") : t("act_map")]);
+    if (r.since) acts.push(["since", t("act_since")]);
+    if (r.curfew) acts.push(["curfew", t("act_curfew")]);
+    turn.innerHTML = `<p class="you">${esc(q)}</p>` + (r.steps.length ? `<p class="hint" style="margin:0">${t("checked")}</p><ul class="steps">${r.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : "") +
+      `<p class="answer">${esc(r.answer)}</p>` + (acts.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap">${acts.map(([k, l]) => `<button class="plain" type="button" data-act="${k}">${esc(l)}</button>`).join("")}</div>` : "") +
+      `<p class="hint" style="margin-top:.8rem">${t("followup")}</p>`;
     if (r.place) {
       state.radius = r.place.radius || state.radius; setSegment($("#radius"), state.radius); $("#addr").value = "";
-      turn.querySelector('[data-act="map"]').onclick = async () => { openTab("area"); await loadArea({ lat: r.place.lat, lon: r.place.lon, zip: r.place.zip, matched: r.place.matched }); };
+      (r.show || []).forEach((k) => state.layers.add(k));
+      turn.querySelector('[data-act="map"]').onclick = async () => { openTab("area"); await loadArea({ lat: r.place.lat, lon: r.place.lon, zip: r.place.zip, matched: r.place.matched }); if (r.show && r.show.length) Maps.setPlaces(state.places, state.layers, true); };
       state.place = { ...r.place }; state.areaId = r.place.area_id || ""; state.zip = r.place.zip || "";
     }
     if (r.since) {
@@ -580,27 +1184,38 @@ async function ask(text) {
     turn.innerHTML = `<p class="you">${esc(q)}</p><div class="error">${esc(e.message)}</div>`;
     $("#ask").value = q;
   }
-  btn.disabled = false; btn.textContent = "Ask";
+  btn.disabled = false; btn.textContent = t("ask_btn");
   turn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+// tapping an example fills the box and highlights the blank, so typing replaces it
+function selectBlank() {
+  const box = $("#ask"), b = t("blank"), i = box.value.indexOf(b);
+  if (i >= 0) box.setSelectionRange(i, i + b.length);
 }
 $("#ask-go").onclick = () => ask();
 $("#ask").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) ask(); });
-$("#ask-reset").onclick = () => { chat.length = 0; $("#thread").innerHTML = ""; $("#examples").hidden = false; $("#ask-reset").hidden = true; $("#ask").focus(); };
-document.querySelectorAll("#examples button").forEach((b) => (b.onclick = () => { $("#ask").value = b.textContent; $("#ask").focus(); }));
+$("#ask-reset").onclick = () => { chat.length = 0; $("#thread").innerHTML = ""; $("#home-extra").hidden = false; $("#ask-reset").hidden = true; $("#ask").focus(); };
 
-/* start */
+/* ---------- start ---------- */
+function buildSegments() {
+  const cfg = state.cfg;
+  segment($("#radius"), [0.5, 1, 2].map((v) => ({ value: v, label: t("mi")[v] })), (v) => { state.radius = Number(v); if (state.lastArea) loadArea(state.lastArea.place); }, state.radius);
+  segment($("#area-pick"), cfg.areas.map((a) => ({ value: a.id, label: a.name })), (id) => {
+    const a = cfg.areas.find((x) => x.id === id); $("#addr").value = "";
+    loadArea({ lat: a.lat, lon: a.lon, zip: a.zips[0], matched: a.name, areaMiddle: a.name });
+  }, state.lastArea && state.lastArea.place.areaMiddle ? state.areaId : "");
+  segment($("#since-area"), cfg.areas.map((a) => ({ value: a.id, label: a.name })), (id) => { state.sinceArea = id; }, state.sinceArea);
+}
+applyStatic();
+Hero.restart();
+openTab(tabFromHash(), false);
 (async function start() {
   try { state.cfg = await api("/api/config"); } catch (e) { return; }
   const cfg = state.cfg;
   $("#date").max = cfg.today;
-  const miss = ["rent", "prices", "buses"].filter((k) => !cfg.data[k]);
-  if (miss.length) { const n = $("#data-notice"); n.hidden = false; n.innerHTML = `<strong>Some data isn't loaded yet:</strong> ${miss.join(", ")}.`; }
-  segment($("#radius"), [0.5, 1, 2].map((v) => ({ value: v, label: MILES[v] })), (v) => { state.radius = Number(v); if (state.place) loadArea(state.place); }, state.radius);
-  segment($("#area-pick"), cfg.areas.map((a) => ({ value: a.id, label: a.name })), (id) => {
-    const a = cfg.areas.find((x) => x.id === id); $("#addr").value = "";
-    loadArea({ lat: a.lat, lon: a.lon, zip: a.zips[0], matched: a.name + " (the middle of the neighborhood)" });
-  }, "");
-  segment($("#since-area"), cfg.areas.map((a) => ({ value: a.id, label: a.name })), (id) => { state.sinceArea = id; }, "");
+  const miss = ["rent", "prices", "buses", "places"].filter((k) => !cfg.data[k]);
+  if (miss.length) { const n = $("#data-notice"); n.hidden = false; n.innerHTML = `<strong>${t("not_loaded")}</strong> ${miss.join(", ")}.`; }
+  buildSegments();
   syncSinceArea();
 })();
 </script>
